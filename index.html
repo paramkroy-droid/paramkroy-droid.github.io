@@ -191,7 +191,7 @@
       const [accessToken, setAccessToken] = useState(null);
       const [syncing, setSyncing] = useState(false);
       const [lastSynced, setLastSynced] = useState(null);
-      tokenClientRef = useRef(null);
+      const tokenClientRef = useRef(null);
 
       // Gemini AI Integration States
       const [geminiApiKey, setGeminiApiKey] = useState('');
@@ -398,7 +398,7 @@ Holidays: ${JSON.stringify(holidays)}
 Query: ${aiQuery || "Analyze my attendance status and tell me which classes I can skip or must attend."}`;
 
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`, {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey.trim()}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
