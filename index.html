@@ -226,11 +226,11 @@
 
       useEffect(() => {
         try {
-          const savedSubjects = localStorage.getItem('attendance_subjects_v15');
-          const savedTimetable = localStorage.getItem('attendance_timetable_v15');
-          const savedHistory = localStorage.getItem('attendance_history_v15');
-          const savedHolidays = localStorage.getItem('attendance_holidays_v15');
-          const savedCancelledSlots = localStorage.getItem('attendance_cancelled_single_v15');
+          const savedSubjects = localStorage.getItem('attendance_subjects_v16');
+          const savedTimetable = localStorage.getItem('attendance_timetable_v16');
+          const savedHistory = localStorage.getItem('attendance_history_v16');
+          const savedHolidays = localStorage.getItem('attendance_holidays_v16');
+          const savedCancelledSlots = localStorage.getItem('attendance_cancelled_single_v16');
           const savedLeadTime = localStorage.getItem('attendance_alert_lead_time');
           const savedApiKey = localStorage.getItem('gemini_api_key_v1');
           
@@ -271,11 +271,11 @@
 
       useEffect(() => {
         if (loaded) {
-          localStorage.setItem('attendance_subjects_v15', JSON.stringify(subjects));
-          localStorage.setItem('attendance_timetable_v15', JSON.stringify(timetable));
-          localStorage.setItem('attendance_history_v15', JSON.stringify(historyLogs));
-          localStorage.setItem('attendance_holidays_v15', JSON.stringify(holidays));
-          localStorage.setItem('attendance_cancelled_single_v15', JSON.stringify(cancelledSingleSlots));
+          localStorage.setItem('attendance_subjects_v16', JSON.stringify(subjects));
+          localStorage.setItem('attendance_timetable_v16', JSON.stringify(timetable));
+          localStorage.setItem('attendance_history_v16', JSON.stringify(historyLogs));
+          localStorage.setItem('attendance_holidays_v16', JSON.stringify(holidays));
+          localStorage.setItem('attendance_cancelled_single_v16', JSON.stringify(cancelledSingleSlots));
           localStorage.setItem('attendance_alert_lead_time', alertLeadTime.toString());
           localStorage.setItem('gemini_api_key_v1', geminiApiKey);
 
@@ -369,7 +369,6 @@
         }
       };
 
-      // Client-side Direct REST Call to Gemini API
       const handleAskGemini = async (e) => {
         e.preventDefault();
         if (!geminiApiKey.trim()) {
@@ -380,14 +379,12 @@
         setIsAiLoading(true);
         setAiResponse('');
 
-        const contextPrompt = `You are an AI academic attendance advisor. Below is the user's current course telemetry data:
+        const contextPrompt = `You are an academic attendance advisor. Below is the student's telemetry data:
 Subjects: ${JSON.stringify(subjects)}
 Timetable: ${JSON.stringify(timetable)}
 Holidays: ${JSON.stringify(holidays)}
 
-User Question: ${aiQuery || "Analyze my overall attendance health and provide tactical advice on which classes I can skip or must attend to reach my targets."}
-
-Provide a concise, direct, clear, and bulleted analysis.`;
+Query: ${aiQuery || "Analyze my attendance status and tell me which classes I can skip or must attend."}`;
 
         try {
           const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`, {
@@ -633,15 +630,15 @@ Provide a concise, direct, clear, and bulleted analysis.`;
               React.createElement('div', { className: 'flex gap-1 bg-white/[0.03] p-1 rounded-2xl border border-white/10' },
                 React.createElement('button', {
                   onClick: () => setActiveTab('tracker'),
-                  className: `px-4 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'tracker' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
+                  className: `px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'tracker' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
                 }, 'Analytics'),
                 React.createElement('button', {
                   onClick: () => setActiveTab('timetable'),
-                  className: `px-4 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'timetable' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
+                  className: `px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'timetable' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
                 }, 'Schedule'),
                 React.createElement('button', {
                   onClick: () => setActiveTab('ai'),
-                  className: `px-4 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'ai' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
+                  className: `px-3.5 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'ai' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
                 }, 'AI Advisor')
               )
             )
@@ -1113,7 +1110,7 @@ Provide a concise, direct, clear, and bulleted analysis.`;
                           }, '✕ Missed'),
                           React.createElement('button', {
                             onClick: () => cancelSlotForSpecificDay(slot.id, selectedCalendarDay),
-                            className: 'px-2 py-1 rounded-xl bg-slate-500/20 border border-slate-500/40 text-slate-300 text-xs font-bold hover:bg-rose-500/30 hover:text-rose-300',
+                            className: 'px-2 py-1 rounded-xl bg-slate-500/20 border border-slate-500/40 text-slate-300 text-xs font-bold hover:bg-rose-500/20 hover:text-rose-300',
                             title: 'Cancel lecture for this specific day only'
                           }, '🗑️ Day Cancel')
                         )
