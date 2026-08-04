@@ -221,6 +221,35 @@
             },
             required: ["subjectNameOrId", "day", "startTime", "endTime"]
           }
+        },
+        {
+          name: "deleteSchedule",
+          description: "Deletes an existing schedule slot based on subject name and optional day or time.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              subjectNameOrId: { type: "STRING", description: "Name or ID of the subject whose schedule to delete" },
+              day: { type: "STRING", description: "Optional day of the week to narrow down deletion" },
+              startTime: { type: "STRING", description: "Optional start time to match exact slot" }
+            },
+            required: ["subjectNameOrId"]
+          }
+        },
+        {
+          name: "updateSchedule",
+          description: "Modifies or updates an existing schedule slot's time, type, or day.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              subjectNameOrId: { type: "STRING", description: "Name or ID of the subject whose schedule to update" },
+              day: { type: "STRING", description: "Current or new day of the week" },
+              newDay: { type: "STRING", description: "New day of the week if changing" },
+              newStartTime: { type: "STRING", description: "New start time (HH:MM)" },
+              newEndTime: { type: "STRING", description: "New end time (HH:MM)" },
+              newType: { type: "STRING", description: "New class type ('Lecture' or 'Practical')" }
+            },
+            required: ["subjectNameOrId"]
+          }
         }
       ]
     }];
@@ -518,6 +547,55 @@
         return `Successfully scheduled ${isTemp ? 'temporary' : 'permanent'} ${newSlot.type} for '${targetSub.name}' on ${dayName}s (${startTime}-${endTime})${isTemp ? ` from ${startDate} to ${endDate}` : ''}.`;
       };
 
+      const executeDeleteSchedule = (args) => {
+        const subQuery = args.subjectNameOrId ? args.subjectNameOrId.trim().toLowerCase() : '';
+        const targetSub = subjects.find(s => s.id === subQuery || s.name.toLowerCase() === subQuery);
+        if (!targetSub) return `Failed: Subject '${args.subjectNameOrId}' not found.`;
+
+        const targetDay = args.day ? args.day.charAt(0).toUpperCase() + args.day.slice(1).toLowerCase() : null;
+        const targetTime = args.startTime ? args.startTime.trim() : null;
+
+        let initialCount = timetable.length;
+        setTimetable(prev => prev.filter(t => {
+          if (t.subjectId !== targetSub.id) return true;
+          if (targetDay && t.day !== targetDay) return true;
+          if (targetTime && t.startTime !== targetTime) return true;
+          return false; // matches deletion criteria
+        }));
+
+        return `Successfully deleted matching schedules for '${targetSub.name}'.`;
+      };
+
+      const executeUpdateSchedule = (args) => {
+        const subQuery = args.subjectNameOrId ? args.subjectNameOrId.trim().toLowerCase() : '';
+        const targetSub = subjects.find(s => s.id === subQuery || s.name.toLowerCase() === subQuery);
+        if (!targetSub) return `Failed: Subject '${args.subjectNameOrId}' not found.`;
+
+        const filterDay = args.day ? args.day.charAt(0).toUpperCase() + args.day.slice(1).toLowerCase() : null;
+        const newDay = args.newDay ? args.newDay.charAt(0).toUpperCase() + args.newDay.slice(1).toLowerCase() : null;
+        const newStartTime = args.newStartTime ? args.newStartTime.trim() : null;
+        const newEndTime = args.newEndTime ? args.newEndTime.trim() : null;
+        const newType = args.newType ? args.newType.trim() : null;
+
+        let updatedCount = 0;
+        setTimetable(prev => prev.map(t => {
+          if (t.subjectId !== targetSub.id) return t;
+          if (filterDay && t.day !== filterDay) return t;
+
+          updatedCount++;
+          return {
+            ...t,
+            day: newDay || t.day,
+            startTime: newStartTime || t.startTime,
+            endTime: newEndTime || t.endTime,
+            type: newType || t.type
+          };
+        }));
+
+        if (updatedCount === 0) return `No matching schedules found for '${targetSub.name}' to update.`;
+        return `Successfully updated ${updatedCount} schedule slot(s) for '${targetSub.name}'.`;
+      };
+
       const handleAskGemini = async (e) => {
         e.preventDefault();
         const promptText = aiInput.trim();
@@ -544,10 +622,12 @@ User Request: "${promptText}"
 You can answer queries directly OR execute actions using tools:
 1. addSubject(name, min, target, attended, total)
 2. deleteSubject(subjectNameOrId)
-3. addSchedule(subjectNameOrId, day, type, startTime, endTime, isTemporary, startDate, endDate)`;
+3. addSchedule(subjectNameOrId, day, type, startTime, endTime, isTemporary, startDate, endDate)
+4. deleteSchedule(subjectNameOrId, day, startTime)
+5. updateSchedule(subjectNameOrId, day, newDay, newStartTime, newEndTime, newType)`;
 
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`, {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey.trim()}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -576,6 +656,10 @@ You can answer queries directly OR execute actions using tools:
                   result = executeDeleteSubject(call.args);
                 } else if (call.name === 'addSchedule') {
                   result = executeAddSchedule(call.args);
+                } else if (call.name === 'deleteSchedule') {
+                  result = executeDeleteSchedule(call.args);
+                } else if (call.name === 'updateSchedule') {
+                  result = executeUpdateSchedule(call.args);
                 }
                 executionLogs.push(`⚙️ Executed ${call.name}: ${result}`);
               }
@@ -956,7 +1040,7 @@ You can answer queries directly OR execute actions using tools:
               React.createElement('div', { className: 'h-64 overflow-y-auto space-y-3 p-3.5 rounded-2xl bg-black/40 border border-white/10' },
                 chatMessages.length === 0 ? 
                   React.createElement('div', { className: 'text-center py-10 text-slate-500 text-xs' }, 
-                    'Ask Gemini to analyze attendance, create or delete subjects, or add temporary/permanent schedules.'
+                    'Ask Gemini to analyze attendance, create or delete subjects, or modify/delete schedules.'
                   ) :
                   chatMessages.map((msg, idx) => React.createElement('div', {
                     key: idx,
@@ -979,7 +1063,7 @@ You can answer queries directly OR execute actions using tools:
               React.createElement('form', { onSubmit: handleAskGemini, className: 'flex items-center gap-2' },
                 React.createElement('input', {
                   type: 'text',
-                  placeholder: 'Type message or command (e.g., "Add temporary lecture for Pathology on Monday 10:00-11:00 from 2026-08-01 to 2026-08-31")...',
+                  placeholder: 'Type message or command (e.g., "Change Pathology lecture on Monday to 11:00")...',
                   value: aiInput,
                   onChange: (e) => setAiInput(e.target.value),
                   className: 'glass-input flex-1 rounded-2xl px-4 py-2.5 text-xs font-medium'
@@ -1567,7 +1651,7 @@ You can answer queries directly OR execute actions using tools:
                     type: 'date',
                     value: ttEndDate,
                     onChange: (e) => setTtEndDate(e.target.value),
-                    className: 'glass-input w-full rounded-2xl px-3.5 py-2 text-xs font-bold text-indigo-200 cursor-pointer box-border'
+                    className: 'glass-input w-full rounded-2xl px-3.5 py-2 text-xs font-bold text-indigo-200 cursor-pointer box-beta'
                   })
                 )
               ),
