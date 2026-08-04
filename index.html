@@ -199,9 +199,10 @@
       const [aiResponse, setAiResponse] = useState('');
       const [isAiLoading, setIsAiLoading] = useState(false);
 
-      // Calendar Navigation State
+      // Calendar Navigation State (Default modal state is null)
       const [currentMonth, setCurrentMonth] = useState(new Date());
-      const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date());
+      const [selectedCalendarDay, setSelectedCalendarDay] = useState(null);
+      const [dailyInspectorDate, setDailyInspectorDate] = useState(new Date());
 
       const [alertLeadTime, setAlertLeadTime] = useState(10);
 
@@ -226,11 +227,11 @@
 
       useEffect(() => {
         try {
-          const savedSubjects = localStorage.getItem('attendance_subjects_v16');
-          const savedTimetable = localStorage.getItem('attendance_timetable_v16');
-          const savedHistory = localStorage.getItem('attendance_history_v16');
-          const savedHolidays = localStorage.getItem('attendance_holidays_v16');
-          const savedCancelledSlots = localStorage.getItem('attendance_cancelled_single_v16');
+          const savedSubjects = localStorage.getItem('attendance_subjects_v17');
+          const savedTimetable = localStorage.getItem('attendance_timetable_v17');
+          const savedHistory = localStorage.getItem('attendance_history_v17');
+          const savedHolidays = localStorage.getItem('attendance_holidays_v17');
+          const savedCancelledSlots = localStorage.getItem('attendance_cancelled_single_v17');
           const savedLeadTime = localStorage.getItem('attendance_alert_lead_time');
           const savedApiKey = localStorage.getItem('gemini_api_key_v1');
           
@@ -271,11 +272,11 @@
 
       useEffect(() => {
         if (loaded) {
-          localStorage.setItem('attendance_subjects_v16', JSON.stringify(subjects));
-          localStorage.setItem('attendance_timetable_v16', JSON.stringify(timetable));
-          localStorage.setItem('attendance_history_v16', JSON.stringify(historyLogs));
-          localStorage.setItem('attendance_holidays_v16', JSON.stringify(holidays));
-          localStorage.setItem('attendance_cancelled_single_v16', JSON.stringify(cancelledSingleSlots));
+          localStorage.setItem('attendance_subjects_v17', JSON.stringify(subjects));
+          localStorage.setItem('attendance_timetable_v17', JSON.stringify(timetable));
+          localStorage.setItem('attendance_history_v17', JSON.stringify(historyLogs));
+          localStorage.setItem('attendance_holidays_v17', JSON.stringify(holidays));
+          localStorage.setItem('attendance_cancelled_single_v17', JSON.stringify(cancelledSingleSlots));
           localStorage.setItem('attendance_alert_lead_time', alertLeadTime.toString());
           localStorage.setItem('gemini_api_key_v1', geminiApiKey);
 
@@ -608,7 +609,7 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
 
       return React.createElement('div', { className: 'min-h-screen pb-24 text-slate-100' },
         
-        // Navigation Header
+        // Header
         React.createElement('header', { className: 'sticky top-0 z-30 border-b border-white/10 bg-slate-950/20 backdrop-blur-3xl shadow-2xl' },
           React.createElement('div', { className: 'mx-auto flex max-w-3xl items-center justify-between px-6 py-4' },
             React.createElement('h1', { className: 'text-base font-bold tracking-wide text-white/90' }, 'Attendance Tracker'),
@@ -976,25 +977,25 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
                 React.createElement('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/[0.02] border border-white/10 rounded-2xl p-4' },
                   React.createElement('div', null,
                     React.createElement('h3', { className: 'text-sm font-bold text-indigo-300' }, 
-                      selectedCalendarDay.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+                      dailyInspectorDate.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
                     ),
                     React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, 'Daily timetable schedule inspector')
                   ),
                   React.createElement('input', {
                     type: 'date',
-                    value: selectedCalendarDay.toISOString().split('T')[0],
-                    onChange: (e) => setSelectedCalendarDay(new Date(e.target.value + 'T00:00:00')),
+                    value: dailyInspectorDate.toISOString().split('T')[0],
+                    onChange: (e) => setDailyInspectorDate(new Date(e.target.value + 'T00:00:00')),
                     className: 'glass-input rounded-2xl px-4 py-2 text-xs font-bold text-indigo-300 cursor-pointer'
                   })
                 ),
 
                 (() => {
-                  const dateKey = selectedCalendarDay.toISOString().split('T')[0];
-                  const dayName = DAYS[selectedCalendarDay.getDay()];
+                  const dateKey = dailyInspectorDate.toISOString().split('T')[0];
+                  const selectedDayName = DAYS[dailyInspectorDate.getDay()];
                   const holidayObj = isDateHoliday(dateKey);
                   const cancelledSlotsForDay = cancelledSingleSlots[dateKey] || [];
                   
-                  const daySlots = timetable.filter(t => t.day === dayName && !cancelledSlotsForDay.includes(t.id));
+                  const daySlots = timetable.filter(t => t.day === selectedDayName && !cancelledSlotsForDay.includes(t.id));
 
                   if (holidayObj) {
                     return React.createElement('div', { className: 'text-center py-8 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-1' },
@@ -1005,7 +1006,7 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
                   }
 
                   if (daySlots.length === 0) {
-                    return React.createElement('div', { className: 'text-center py-8 text-slate-500 text-xs font-medium' }, `No active classes scheduled for ${dayName}s.`);
+                    return React.createElement('div', { className: 'text-center py-8 text-slate-500 text-xs font-medium' }, `No active classes scheduled for ${selectedDayName}s.`);
                   }
 
                   return React.createElement('div', { className: 'space-y-3' },
@@ -1027,15 +1028,15 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
                         ),
                         React.createElement('div', { className: 'flex items-center gap-2 flex-wrap' },
                           React.createElement('button', {
-                            onClick: () => logStatus(subject.id, 'attended', selectedCalendarDay),
+                            onClick: () => logStatus(subject.id, 'attended', dailyInspectorDate),
                             className: 'px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30'
                           }, '✓ Attended'),
                           React.createElement('button', {
-                            onClick: () => logStatus(subject.id, 'missed', selectedCalendarDay),
+                            onClick: () => logStatus(subject.id, 'missed', dailyInspectorDate),
                             className: 'px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-500/30'
                           }, '✕ Missed'),
                           React.createElement('button', {
-                            onClick: () => cancelSlotForSpecificDay(slot.id, selectedCalendarDay),
+                            onClick: () => cancelSlotForSpecificDay(slot.id, dailyInspectorDate),
                             className: 'px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-rose-300 text-xs font-bold hover:bg-rose-500/20',
                             title: 'Delete lecture for this specific day only'
                           }, '🗑️ Day Cancel')
@@ -1065,10 +1066,10 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
 
                 (() => {
                   const dateKey = selectedCalendarDay.toISOString().split('T')[0];
-                  const dayName = DAYS[selectedCalendarDay.getDay()];
+                  const selectedDayName = DAYS[selectedCalendarDay.getDay()];
                   const holidayObj = isDateHoliday(dateKey);
                   const cancelledSlotsForDay = cancelledSingleSlots[dateKey] || [];
-                  const daySlots = timetable.filter(t => t.day === dayName && !cancelledSlotsForDay.includes(t.id));
+                  const daySlots = timetable.filter(t => t.day === selectedDayName && !cancelledSlotsForDay.includes(t.id));
 
                   if (holidayObj) {
                     return React.createElement('div', { className: 'text-center py-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-1' },
@@ -1079,7 +1080,7 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
                   }
 
                   if (daySlots.length === 0) {
-                    return React.createElement('p', { className: 'text-center py-6 text-slate-400 text-xs font-medium' }, `No classes scheduled for ${dayName}s.`);
+                    return React.createElement('p', { className: 'text-center py-6 text-slate-400 text-xs font-medium' }, `No classes scheduled for ${selectedDayName}s.`);
                   }
 
                   return React.createElement('div', { className: 'space-y-3 max-h-80 overflow-y-auto pr-1' },
