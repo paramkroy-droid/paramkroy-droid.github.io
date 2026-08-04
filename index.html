@@ -3,12 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Attendance Ledger</title>
+  <title>Attendance Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     body { font-family: 'Inter', system-ui, sans-serif; }
@@ -17,9 +15,8 @@
 <body class="bg-slate-50">
   <div id="root"></div>
 
-  <script type="text/babel">
+  <script>
     const { useState, useEffect } = React;
-    const { Plus, Trash2, BookOpen, GraduationCap } = lucide;
 
     function App() {
       const [subjects, setSubjects] = useState([]);
@@ -73,84 +70,74 @@
         }));
       };
 
-      if (!loaded) return <div class="p-8 text-center text-slate-500">Loading...</div>;
+      if (!loaded) return React.createElement('div', { className: 'p-8 text-center text-slate-500' }, 'Loading...');
 
-      return (
-        <div class="min-h-screen pb-12">
-          <header class="border-b border-slate-200 bg-white shadow-sm">
-            <div class="mx-auto flex max-w-3xl items-center justify-between px-4 py-3">
-              <div class="flex items-center gap-2">
-                <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white">
-                  <GraduationCap size={20} />
-                </div>
-                <h1 class="text-lg font-bold text-slate-800">Attendance Tracker</h1>
-              </div>
-            </div>
-          </header>
-
-          <main class="mx-auto max-w-3xl px-4 py-6">
-            <form onSubmit={addSubject} class="mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-              <h2 class="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Add New Subject</h2>
-              <div class="space-y-3">
-                <input
-                  type="text"
-                  placeholder="Subject Name (e.g. Pharmacology)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-                />
-                <div class="grid grid-cols-2 gap-3">
-                  <div>
-                    <label class="mb-1 block text-xs text-slate-400">Attended</label>
-                    <input type="number" value={attended} onChange={(e) => setAttended(e.target.value)} class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                  </div>
-                  <div>
-                    <label class="mb-1 block text-xs text-slate-400">Total Held</label>
-                    <input type="number" value={total} onChange={(e) => setTotal(e.target.value)} class="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm" />
-                  </div>
-                </div>
-                <button type="submit" class="w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-700">
-                  Add Subject
-                </button>
-              </div>
-            </form>
-
-            {subjects.length === 0 ? (
-              <div class="rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500">
-                <BookOpen class="mx-auto mb-2 h-8 w-8 text-indigo-400" />
-                <p class="text-sm font-medium">No subjects added yet.</p>
-              </div>
-            ) : (
-              <div class="space-y-3">
-                {subjects.map(s => {
-                  const pct = s.total > 0 ? ((s.attended / s.total) * 100).toFixed(1) : '0.0';
-                  return (
-                    <div key={s.id} class="flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <div>
-                        <h3 class="font-semibold text-slate-800">{s.name}</h3>
-                        <p class="text-xs text-slate-500">Attended {s.attended} of {s.total} classes (<span class="font-bold text-indigo-600">{pct}%</span>)</p>
-                      </div>
-                      <div class="flex items-center gap-2">
-                        <div class="flex items-center gap-1 rounded-lg bg-slate-100 p-1">
-                          <button type="button" onClick={() => adjust(s.id, 'att', -1)} class="px-2 py-1 text-xs font-bold text-slate-600">-A</button>
-                          <button type="button" onClick={() => adjust(s.id, 'att', 1)} class="px-2 py-1 text-xs font-bold text-slate-600">+A</button>
-                          <button type="button" onClick={() => adjust(s.id, 'tot', 1)} class="px-2 py-1 text-xs font-bold text-slate-600">+T</button>
-                        </div>
-                        <button type="button" onClick={() => deleteSubject(s.id)} class="text-slate-400 hover:text-rose-600">
-                          <Trash2 size={18} />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </main>
-        </div>
+      return React.createElement('div', { className: 'min-h-screen pb-12' },
+        React.createElement('header', { className: 'border-b border-slate-200 bg-white shadow-sm' },
+          React.createElement('div', { className: 'mx-auto flex max-w-3xl items-center justify-between px-4 py-3' },
+            React.createElement('h1', { className: 'text-lg font-bold text-slate-800' }, 'Attendance Tracker')
+          )
+        ),
+        React.createElement('main', { className: 'mx-auto max-w-3xl px-4 py-6' },
+          React.createElement('form', { onSubmit: addSubject, className: 'mb-6 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm space-y-3' },
+            React.createElement('h2', { className: 'text-sm font-semibold uppercase tracking-wide text-slate-500' }, 'Add New Subject'),
+            React.createElement('input', {
+              type: 'text',
+              placeholder: 'Subject Name (e.g. Pharmacology)',
+              value: name,
+              onChange: (e) => setName(e.target.value),
+              className: 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-indigo-500'
+            }),
+            React.createElement('div', { className: 'grid grid-cols-2 gap-3' },
+              React.createElement('div', null,
+                React.createElement('label', { className: 'mb-1 block text-xs text-slate-400' }, 'Attended'),
+                React.createElement('input', {
+                  type: 'number',
+                  value: attended,
+                  onChange: (e) => setAttended(e.target.value),
+                  className: 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm'
+                })
+              ),
+              React.createElement('div', null,
+                React.createElement('label', { className: 'mb-1 block text-xs text-slate-400' }, 'Total Held'),
+                React.createElement('input', {
+                  type: 'number',
+                  value: total,
+                  onChange: (e) => setTotal(e.target.value),
+                  className: 'w-full rounded-lg border border-slate-200 px-3 py-2 text-sm'
+                })
+              )
+            ),
+            React.createElement('button', {
+              type: 'submit',
+              className: 'w-full rounded-lg bg-indigo-600 py-2.5 text-sm font-semibold text-white shadow hover:bg-indigo-700'
+            }, 'Add Subject')
+          ),
+          subjects.length === 0 ? React.createElement('div', { className: 'rounded-2xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500' }, 'No subjects added yet.') :
+          React.createElement('div', { className: 'space-y-3' },
+            subjects.map(s => {
+              const pct = s.total > 0 ? ((s.attended / s.total) * 100).toFixed(1) : '0.0';
+              return React.createElement('div', { key: s.id, className: 'flex items-center justify-between rounded-xl border border-slate-200 bg-white p-4 shadow-sm' },
+                React.createElement('div', null,
+                  React.createElement('h3', { className: 'font-semibold text-slate-800' }, s.name),
+                  React.createElement('p', { className: 'text-xs text-slate-500' }, `Attended ${s.attended} of ${s.total} classes (`, React.createElement('span', { className: 'font-bold text-indigo-600' }, `${pct}%`), ')')
+                ),
+                React.createElement('div', { className: 'flex items-center gap-2' },
+                  React.createElement('div', { className: 'flex items-center gap-1 rounded-lg bg-slate-100 p-1' },
+                    React.createElement('button', { type: 'button', onClick: () => adjust(s.id, 'att', -1), className: 'px-2 py-1 text-xs font-bold text-slate-600' }, '-A'),
+                    React.createElement('button', { type: 'button', onClick: () => adjust(s.id, 'att', 1), className: 'px-2 py-1 text-xs font-bold text-slate-600' }, '+A'),
+                    React.createElement('button', { type: 'button', onClick: () => adjust(s.id, 'tot', 1), className: 'px-2 py-1 text-xs font-bold text-slate-600' }, '+T')
+                  ),
+                  React.createElement('button', { type: 'button', onClick: () => deleteSubject(s.id), className: 'text-slate-400 hover:text-rose-600 font-bold px-2' }, '✕')
+                )
+              );
+            })
+          )
+        )
       );
     }
 
-    ReactDOM.render(<App />, document.getElementById('root'));
+    ReactDOM.render(React.createElement(App), document.getElementById('root'));
   </script>
 </body>
 </html>
