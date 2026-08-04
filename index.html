@@ -11,63 +11,129 @@
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js" async defer></script>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Attendance">
+
   <style>
     body { 
       font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
-      background-color: #020617;
+      background-color: #02040a;
       color: #f8fafc;
       overflow-x: hidden;
       min-height: 100vh;
     }
 
-    .mesh-glow {
+    /* Enhanced Multidimensional Dynamic Mesh Background */
+    .bg-mesh {
       position: fixed;
       inset: 0;
       z-index: 0;
       pointer-events: none;
-      background: 
-        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.25) 0%, transparent 45%),
-        radial-gradient(circle at 85% 20%, rgba(168, 85, 247, 0.2) 0%, transparent 40%),
-        radial-gradient(circle at 50% 85%, rgba(14, 165, 233, 0.2) 0%, transparent 50%);
-      filter: blur(80px);
-      animation: meshPulse 14s ease-in-out infinite alternate;
-    }
-    @keyframes meshPulse {
-      0% { opacity: 0.8; transform: scale(1); }
-      100% { opacity: 1; transform: scale(1.08); }
+      overflow: hidden;
     }
 
-    .glass-card {
-      background: rgba(255, 255, 255, 0.03);
-      backdrop-filter: blur(40px);
-      -webkit-backdrop-filter: blur(40px);
-      border: 1px solid rgba(255, 255, 255, 0.12);
-      box-shadow: 0 30px 60px -12px rgba(0, 0, 0, 0.5), inset 0 1px 1px 0 rgba(255, 255, 255, 0.18);
+    .bg-orb {
+      position: absolute;
+      border-radius: 50%;
+      filter: blur(100px);
+      opacity: 0.6;
+      animation: floatOrb 18s ease-in-out infinite alternate;
     }
-    .glass-card:hover {
-      border-color: rgba(255, 255, 255, 0.22);
-      background: rgba(255, 255, 255, 0.05);
+
+    .bg-orb-1 {
+      top: -10%;
+      left: -10%;
+      width: 55vw;
+      height: 55vw;
+      background: radial-gradient(circle, rgba(99, 102, 241, 0.35) 0%, rgba(139, 92, 246, 0.15) 70%, transparent 100%);
+    }
+
+    .bg-orb-2 {
+      top: 40%;
+      right: -15%;
+      width: 50vw;
+      height: 50vw;
+      background: radial-gradient(circle, rgba(236, 72, 153, 0.28) 0%, rgba(168, 85, 247, 0.1) 70%, transparent 100%);
+      animation-delay: -6s;
+    }
+
+    .bg-orb-3 {
+      bottom: -10%;
+      left: 20%;
+      width: 60vw;
+      height: 60vw;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.25) 0%, rgba(59, 130, 246, 0.1) 70%, transparent 100%);
+      animation-delay: -12s;
+    }
+
+    @keyframes floatOrb {
+      0% { transform: translate(0, 0) scale(1); }
+      50% { transform: translate(40px, 30px) scale(1.08); }
+      100% { transform: translate(-30px, 50px) scale(0.95); }
+    }
+
+    /* iOS Liquid Glass Containers */
+    .glass-card {
+      background: rgba(255, 255, 255, 0.035);
+      backdrop-filter: blur(45px) saturate(190%);
+      -webkit-backdrop-filter: blur(45px) saturate(190%);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: 
+        0 30px 60px -12px rgba(0, 0, 0, 0.6),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.25),
+        inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4);
     }
 
     .glass-modal {
-      background: rgba(15, 23, 42, 0.75);
-      backdrop-filter: blur(50px);
-      -webkit-backdrop-filter: blur(50px);
-      border: 1px solid rgba(255, 255, 255, 0.18);
-      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.8);
+      background: rgba(10, 15, 30, 0.78);
+      backdrop-filter: blur(60px) saturate(200%);
+      -webkit-backdrop-filter: blur(60px) saturate(200%);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      box-shadow: 0 40px 80px rgba(0, 0, 0, 0.85);
     }
 
     .glass-input {
-      background: rgba(2, 6, 23, 0.4);
+      background: rgba(2, 6, 23, 0.45);
       border: 1px solid rgba(255, 255, 255, 0.12);
       color: #f8fafc;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .glass-input:focus {
-      background: rgba(2, 6, 23, 0.7);
+      background: rgba(2, 6, 23, 0.75);
       border-color: rgba(129, 140, 248, 0.8);
-      box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.35);
+      box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.4);
       outline: none;
+    }
+
+    /* Futuristic iOS Liquid Glass Progress Bar */
+    .liquid-bar-track {
+      background: rgba(0, 0, 0, 0.65);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+      position: relative;
+    }
+
+    .liquid-bar-fill {
+      position: relative;
+      overflow: hidden;
+      box-shadow: 
+        0 0 15px rgba(255, 255, 255, 0.2),
+        inset 0 1px 2px rgba(255, 255, 255, 0.6),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.4);
+      transition: width 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .liquid-bar-fill::after {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 45%;
+      background: linear-gradient(to bottom, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.05));
+      border-radius: 9999px 9999px 0 0;
     }
 
     .glow-button {
@@ -96,7 +162,11 @@
   </style>
 </head>
 <body class="selection:bg-indigo-500 selection:text-white">
-  <div class="mesh-glow"></div>
+  <div class="bg-mesh">
+    <div class="bg-orb bg-orb-1"></div>
+    <div class="bg-orb bg-orb-2"></div>
+    <div class="bg-orb bg-orb-3"></div>
+  </div>
   <div id="root" class="relative z-10"></div>
 
   <script>
@@ -110,6 +180,7 @@
     function App() {
       const [subjects, setSubjects] = useState([]);
       const [timetable, setTimetable] = useState([]);
+      const [historyLogs, setHistoryLogs] = useState({}); // Stores date-indexed attendance records
       const [activeTab, setActiveTab] = useState('tracker');
       const [loaded, setLoaded] = useState(false);
       const [notifState, setNotifState] = useState('unknown');
@@ -141,12 +212,14 @@
 
       useEffect(() => {
         try {
-          const savedSubjects = localStorage.getItem('attendance_subjects_v12');
-          const savedTimetable = localStorage.getItem('attendance_timetable_v12');
+          const savedSubjects = localStorage.getItem('attendance_subjects_v13');
+          const savedTimetable = localStorage.getItem('attendance_timetable_v13');
+          const savedHistory = localStorage.getItem('attendance_history_v13');
           const savedLeadTime = localStorage.getItem('attendance_alert_lead_time');
           
           if (savedSubjects) setSubjects(JSON.parse(savedSubjects));
           if (savedTimetable) setTimetable(JSON.parse(savedTimetable));
+          if (savedHistory) setHistoryLogs(JSON.parse(savedHistory));
           if (savedLeadTime) setAlertLeadTime(parseInt(savedLeadTime, 10));
         } catch (e) {}
 
@@ -178,15 +251,16 @@
 
       useEffect(() => {
         if (loaded) {
-          localStorage.setItem('attendance_subjects_v12', JSON.stringify(subjects));
-          localStorage.setItem('attendance_timetable_v12', JSON.stringify(timetable));
+          localStorage.setItem('attendance_subjects_v13', JSON.stringify(subjects));
+          localStorage.setItem('attendance_timetable_v13', JSON.stringify(timetable));
+          localStorage.setItem('attendance_history_v13', JSON.stringify(historyLogs));
           localStorage.setItem('attendance_alert_lead_time', alertLeadTime.toString());
 
           if (accessToken) {
-            saveToGoogleDrive(accessToken, subjects, timetable);
+            saveToGoogleDrive(accessToken, subjects, timetable, historyLogs);
           }
         }
-      }, [subjects, timetable, alertLeadTime, loaded]);
+      }, [subjects, timetable, historyLogs, alertLeadTime, loaded]);
 
       const handleGoogleLogin = () => {
         if (!tokenClientRef.current) {
@@ -212,6 +286,7 @@
             const cloudData = await contentRes.json();
             if (cloudData.subjects) setSubjects(cloudData.subjects);
             if (cloudData.timetable) setTimetable(cloudData.timetable);
+            if (cloudData.historyLogs) setHistoryLogs(cloudData.historyLogs);
           }
           setLastSynced(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         } catch (err) {
@@ -221,10 +296,10 @@
         }
       };
 
-      const saveToGoogleDrive = async (token, currentSubjects, currentTimetable) => {
+      const saveToGoogleDrive = async (token, currentSubjects, currentTimetable, currentHistory) => {
         setSyncing(true);
         try {
-          const payload = JSON.stringify({ subjects: currentSubjects, timetable: currentTimetable });
+          const payload = JSON.stringify({ subjects: currentSubjects, timetable: currentTimetable, historyLogs: currentHistory });
           const queryRes = await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='attendance_data.json'", {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -300,7 +375,7 @@
 
       const requestNotificationPermission = () => {
         if (!('Notification' in window)) {
-          alert('Safari restricts Web Notifications when opened as a local file (file://) or unencrypted HTTP. Host this on HTTPS (e.g. GitHub Pages) or add to Home Screen to enable notifications.');
+          alert('Safari restricts Web Notifications when opened as a local file (file://). Host on HTTPS or Add to Home Screen to enable notifications.');
           return;
         }
         Notification.requestPermission().then(permission => {
@@ -312,6 +387,8 @@
         e.preventDefault();
         if (!name.trim()) return;
 
+        const creationDate = new Date().toISOString().split('T')[0];
+
         setSubjects([...subjects, {
           id: Date.now().toString(),
           name: name.trim(),
@@ -319,7 +396,8 @@
           total: parseInt(total) || 0,
           min: parseFloat(min) || 75,
           target: parseFloat(target) || 85,
-          color: selectedColor
+          color: selectedColor,
+          createdAt: creationDate
         }]);
 
         setName('');
@@ -341,7 +419,15 @@
         setTimetable(timetable.filter(t => t.subjectId !== id));
       };
 
-      const logStatus = (subjectId, action) => {
+      // Deletes all scheduled timetable entries for a specific subject
+      const deleteSubjectTimetableGroup = (subjectId) => {
+        setTimetable(timetable.filter(t => t.subjectId !== subjectId));
+      };
+
+      const logStatus = (subjectId, action, targetDate) => {
+        const dateKey = targetDate ? new Date(targetDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
+
+        // Update Overall Subject Class Counters
         setSubjects(subjects.map(s => {
           if (s.id !== subjectId) return s;
           let att = s.attended;
@@ -360,6 +446,21 @@
           }
           return { ...s, attended: Math.max(0, att), total: Math.max(0, tot) };
         }));
+
+        // Store Action Record into History Logs
+        setHistoryLogs(prev => {
+          const dayRecords = prev[dateKey] || [];
+          const existingIndex = dayRecords.findIndex(r => r.subjectId === subjectId);
+          
+          let updatedDayRecords = [...dayRecords];
+          if (existingIndex >= 0) {
+            updatedDayRecords[existingIndex] = { subjectId, status: action };
+          } else {
+            updatedDayRecords.push({ subjectId, status: action });
+          }
+
+          return { ...prev, [dateKey]: updatedDayRecords };
+        });
       };
 
       const addTimetableSlot = (e) => {
@@ -399,7 +500,7 @@
 
       return React.createElement('div', { className: 'min-h-screen pb-24 text-slate-100' },
         
-        // Navigation Header
+        // Header
         React.createElement('header', { className: 'sticky top-0 z-30 border-b border-white/10 bg-slate-950/20 backdrop-blur-3xl shadow-2xl' },
           React.createElement('div', { className: 'mx-auto flex max-w-3xl items-center justify-between px-6 py-4' },
             React.createElement('h1', { className: 'text-base font-bold tracking-wide text-white/90' }, 'Attendance Tracker'),
@@ -532,26 +633,26 @@
                 const pct = s.total > 0 ? (s.attended / s.total) * 100 : 0;
                 const formattedPct = pct.toFixed(1);
                 
-                let barColor = 'bg-slate-600';
+                let barColor = 'from-slate-500 to-slate-700';
                 let statusText = 'No Classes';
                 let statusColor = 'text-slate-400';
                 let adviceText = '';
 
                 if (s.total > 0) {
                   if (pct < s.min) {
-                    barColor = 'bg-gradient-to-r from-rose-600 to-red-500';
+                    barColor = 'from-rose-600 via-red-500 to-pink-500';
                     statusText = 'Below Minimum';
                     statusColor = 'text-rose-400 font-bold';
                     const needed = Math.ceil((s.min * s.total - 100 * s.attended) / (100 - s.min));
                     adviceText = `Attend next ${needed} class${needed === 1 ? '' : 'es'} to reach min (${s.min}%)`;
                   } else if (pct < s.target) {
-                    barColor = 'bg-gradient-to-r from-amber-500 to-orange-400';
+                    barColor = 'from-amber-500 via-orange-500 to-yellow-400';
                     statusText = 'Below Target';
                     statusColor = 'text-amber-400 font-bold';
                     const needed = Math.ceil((s.target * s.total - 100 * s.attended) / (100 - s.target));
                     adviceText = `Attend next ${needed} class${needed === 1 ? '' : 'es'} to hit target (${s.target}%)`;
                   } else {
-                    barColor = 'bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400';
+                    barColor = 'from-emerald-400 via-teal-400 to-cyan-400';
                     statusText = 'On Track';
                     statusColor = 'text-emerald-400 font-bold';
                     const bunkable = Math.floor((100 * s.attended - s.target * s.total) / s.target);
@@ -559,13 +660,15 @@
                   }
                 }
 
+                const scheduledCount = timetable.filter(t => t.subjectId === s.id).length;
+
                 return React.createElement('div', { key: s.id, className: 'glass-card rounded-3xl p-6 space-y-5 transition-all duration-300' },
                   React.createElement('div', { className: 'flex items-center justify-between' },
                     React.createElement('div', { className: 'flex items-center gap-3' },
                       React.createElement('span', { className: 'h-3.5 w-3.5 rounded-full shadow-md', style: { backgroundColor: s.color || '#6366f1' } }),
                       React.createElement('div', null,
                         React.createElement('h3', { className: 'font-bold text-white text-lg tracking-tight' }, s.name),
-                        React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, `Attended ${s.attended} of ${s.total} classes`)
+                        React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, `Attended ${s.attended} of ${s.total} classes • ${scheduledCount} scheduled slots`)
                       )
                     ),
                     React.createElement('div', { className: 'text-right' },
@@ -574,9 +677,13 @@
                     )
                   ),
                   
+                  // iOS Liquid Glass Progress Bar
                   React.createElement('div', { className: 'space-y-2' },
-                    React.createElement('div', { className: 'relative h-3.5 w-full overflow-hidden rounded-full bg-black/60 p-0.5 border border-white/10 shadow-inner' },
-                      React.createElement('div', { className: `h-full rounded-full transition-all duration-700 ${barColor}`, style: { width: `${Math.min(pct, 100)}%` } }),
+                    React.createElement('div', { className: 'liquid-bar-track relative h-4 w-full overflow-hidden rounded-full p-0.5' },
+                      React.createElement('div', { 
+                        className: `liquid-bar-fill h-full rounded-full bg-gradient-to-r ${barColor}`, 
+                        style: { width: `${Math.min(pct, 100)}%` } 
+                      }),
                       React.createElement('div', { className: 'absolute top-0 bottom-0 w-0.5 bg-rose-500 z-10 shadow-[0_0_8px_#f43f5e]', style: { left: `${Math.min(s.min, 100)}%` }, title: `Min Requirement: ${s.min}%` }),
                       React.createElement('div', { className: 'absolute top-0 bottom-0 w-0.5 bg-emerald-400 z-10 shadow-[0_0_8px_#34d399]', style: { left: `${Math.min(s.target, 100)}%` }, title: `Target: ${s.target}%` })
                     ),
@@ -624,11 +731,19 @@
                         className: 'px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold hover:bg-amber-500/20 active:scale-95 transition-all shadow-lg shadow-amber-500/5'
                       }, '🚫 Cancelled')
                     ),
-                    React.createElement('button', {
-                      type: 'button',
-                      onClick: () => deleteSubject(s.id),
-                      className: 'px-4 py-2 rounded-2xl bg-slate-500/10 border border-slate-500/30 text-slate-400 text-xs font-bold hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-300 active:scale-95 transition-all shadow-lg'
-                    }, '🗑️ Delete')
+                    React.createElement('div', { className: 'flex items-center gap-2' },
+                      scheduledCount > 0 && React.createElement('button', {
+                        type: 'button',
+                        onClick: () => deleteSubjectTimetableGroup(s.id),
+                        className: 'px-3 py-2 rounded-2xl bg-purple-500/10 border border-purple-500/30 text-purple-300 text-xs font-bold hover:bg-purple-500/20 active:scale-95 transition-all shadow-lg',
+                        title: 'Clear all scheduled classes for this subject'
+                      }, '📅 Clear Timetable Group'),
+                      React.createElement('button', {
+                        type: 'button',
+                        onClick: () => deleteSubject(s.id),
+                        className: 'px-4 py-2 rounded-2xl bg-slate-500/10 border border-slate-500/30 text-slate-400 text-xs font-bold hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-300 active:scale-95 transition-all shadow-lg'
+                      }, '🗑️ Delete')
+                    )
                   )
                 );
               })
@@ -644,7 +759,7 @@
                   React.createElement('h2', { className: 'text-base font-bold text-white' }, 
                     currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })
                   ),
-                  React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, 'Tap any day to inspect or log classes')
+                  React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, 'Tap any day to inspect classes, or view past attendance cues')
                 ),
                 React.createElement('div', { className: 'flex items-center gap-2' },
                   React.createElement('button', {
@@ -672,25 +787,46 @@
                     return React.createElement('div', { key: `empty-${idx}`, className: 'h-16 sm:h-20 rounded-2xl bg-transparent' });
                   }
 
+                  const dateKey = dateObj.toISOString().split('T')[0];
                   const dayName = DAYS[dateObj.getDay()];
                   const daySlots = timetable.filter(t => t.day === dayName);
                   const isToday = new Date().toDateString() === dateObj.toDateString();
+                  const isPast = dateObj < new Date(new Date().setHours(0,0,0,0));
+
+                  const dayLogs = historyLogs[dateKey] || [];
 
                   return React.createElement('button', {
                     key: dateObj.toISOString(),
                     onClick: () => setSelectedCalendarDay(dateObj),
                     className: `h-16 sm:h-20 rounded-2xl p-2 flex flex-col justify-between items-start border transition-all hover:border-indigo-400/60 ${isToday ? 'bg-indigo-600/20 border-indigo-500/50' : 'bg-white/[0.02] border-white/10'}`
                   },
-                    React.createElement('span', { className: `text-xs font-bold ${isToday ? 'text-indigo-300' : 'text-slate-200'}` }, dateObj.getDate()),
+                    React.createElement('div', { className: 'flex justify-between items-center w-full' },
+                      React.createElement('span', { className: `text-xs font-bold ${isToday ? 'text-indigo-300' : 'text-slate-200'}` }, dateObj.getDate()),
+                      // Visual attendance cues for past days
+                      isPast && dayLogs.length > 0 && React.createElement('div', { className: 'flex items-center gap-1' },
+                        dayLogs.map((log, i) => {
+                          if (log.status === 'attended') return React.createElement('span', { key: i, className: 'text-[10px] font-bold text-emerald-400', title: 'Attended Class' }, '✓');
+                          if (log.status === 'missed') return React.createElement('span', { key: i, className: 'text-[10px] font-bold text-rose-400', title: 'Missed Class' }, '✕');
+                          return null;
+                        })
+                      )
+                    ),
                     
+                    // Scheduled Class Subject Color Indicators
                     React.createElement('div', { className: 'flex items-center gap-1 flex-wrap w-full mt-1' },
                       daySlots.map(slot => {
                         const subject = subjects.find(s => s.id === slot.subjectId);
+                        if (!subject) return null;
+
+                        // Only show visual dot if calendar date is on or after the subject creation date
+                        const isAfterCreation = !subject.createdAt || dateKey >= subject.createdAt;
+                        if (!isAfterCreation) return null;
+
                         return React.createElement('span', {
                           key: slot.id,
                           className: 'h-2 w-2 rounded-full shadow-sm',
-                          style: { backgroundColor: subject?.color || '#6366f1' },
-                          title: `${subject?.name || 'Class'} (${slot.type})`
+                          style: { backgroundColor: subject.color || '#6366f1' },
+                          title: `${subject.name} (${slot.type})`
                         });
                       })
                     )
@@ -699,6 +835,7 @@
               )
             ),
 
+            // Pop-up Modal for Daily Schedule Details
             selectedCalendarDay && React.createElement('div', { className: 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm' },
               React.createElement('div', { className: 'glass-modal w-full max-w-lg rounded-3xl p-6 space-y-5' },
                 React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
@@ -740,17 +877,22 @@
                         ),
                         React.createElement('div', { className: 'flex items-center gap-1.5' },
                           React.createElement('button', {
-                            onClick: () => logStatus(subject.id, 'attended'),
+                            onClick: () => logStatus(subject.id, 'attended', selectedCalendarDay),
                             className: 'px-2.5 py-1 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30'
                           }, '✓ Attended'),
                           React.createElement('button', {
-                            onClick: () => logStatus(subject.id, 'missed'),
+                            onClick: () => logStatus(subject.id, 'missed', selectedCalendarDay),
                             className: 'px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-500/30'
                           }, '✕ Missed'),
                           React.createElement('button', {
-                            onClick: () => logStatus(subject.id, 'cancelled'),
+                            onClick: () => logStatus(subject.id, 'cancelled', selectedCalendarDay),
                             className: 'px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30'
-                          }, '🚫 Cancelled')
+                          }, '🚫 Cancelled'),
+                          React.createElement('button', {
+                            onClick: () => deleteTimetableSlot(slot.id),
+                            className: 'px-2 py-1 rounded-xl bg-slate-500/20 border border-slate-500/40 text-slate-300 text-xs font-bold hover:bg-rose-500/30 hover:text-rose-300',
+                            title: 'Delete individual lecture slot'
+                          }, '🗑️')
                         )
                       );
                     })
@@ -759,6 +901,7 @@
               )
             ),
 
+            // Form to Add Class to Timetable
             React.createElement('form', { onSubmit: addTimetableSlot, className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-5' },
               React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
                 React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-indigo-400' }, 'Add Class to Timetable'),
