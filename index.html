@@ -104,6 +104,7 @@
       const [activeTab, setActiveTab] = useState('tracker');
       const [loaded, setLoaded] = useState(false);
       const [notifGranted, setNotifGranted] = useState(false);
+      const [notifSupported, setNotifSupported] = useState(true);
 
       // Notification Lead Time (in minutes)
       const [alertLeadTime, setAlertLeadTime] = useState(10);
@@ -123,8 +124,8 @@
 
       useEffect(() => {
         try {
-          const savedSubjects = localStorage.getItem('attendance_subjects_v5');
-          const savedTimetable = localStorage.getItem('attendance_timetable_v5');
+          const savedSubjects = localStorage.getItem('attendance_subjects_v6');
+          const savedTimetable = localStorage.getItem('attendance_timetable_v6');
           const savedLeadTime = localStorage.getItem('attendance_alert_lead_time');
           
           if (savedSubjects) setSubjects(JSON.parse(savedSubjects));
@@ -133,15 +134,18 @@
         } catch (e) {}
 
         if ('Notification' in window) {
+          setNotifSupported(true);
           setNotifGranted(Notification.permission === 'granted');
+        } else {
+          setNotifSupported(false);
         }
         setLoaded(true);
       }, []);
 
       useEffect(() => {
         if (loaded) {
-          localStorage.setItem('attendance_subjects_v5', JSON.stringify(subjects));
-          localStorage.setItem('attendance_timetable_v5', JSON.stringify(timetable));
+          localStorage.setItem('attendance_subjects_v6', JSON.stringify(subjects));
+          localStorage.setItem('attendance_timetable_v6', JSON.stringify(timetable));
           localStorage.setItem('attendance_alert_lead_time', alertLeadTime.toString());
         }
       }, [subjects, timetable, alertLeadTime, loaded]);
@@ -163,17 +167,19 @@
             const [h, m] = slot.time.split(':').map(Number);
             const slotMinutes = h * 60 + m;
 
-            // Trigger precisely at configured Lead Time offset
             if (slotMinutes - currentMinutes === alertLeadTime && now.getSeconds() < 10) {
               const subject = subjects.find(s => s.id === slot.subjectId);
               if (!subject) return;
 
-              const notification = new Notification(`Aura Alert: ${subject.name}`, {
-                body: `${slot.type} starting in ${alertLeadTime} minutes (${slot.time}). Log status now.`,
-                icon: 'https://cdn-icons-png.flaticon.com/512/2693/2693507.png'
-              });
-
-              notification.onclick = () => { window.focus(); };
+              try {
+                const notification = new Notification(`Aura Alert: ${subject.name}`, {
+                  body: `${slot.type} starting in ${alertLeadTime} minutes (${slot.time}). Log status now.`,
+                  icon: 'https://cdn-icons-png.flaticon.com/512/2693/2693507.png'
+                });
+                notification.onclick = () => { window.focus(); };
+              } catch (err) {
+                console.warn('Native notification issue:', err);
+              }
             }
           });
         }, 10000);
@@ -183,11 +189,13 @@
 
       const requestNotificationPermission = () => {
         if (!('Notification' in window)) {
-          alert('Notifications are not supported in your current browser.');
+          alert('Notifications are restricted by your browser environment or connection protocol (requires HTTPS).');
           return;
         }
         Notification.requestPermission().then(permission => {
           setNotifGranted(permission === 'granted');
+        }).catch(() => {
+          alert('Could not request notification permissions.');
         });
       };
 
@@ -288,7 +296,10 @@
               ),
               React.createElement('div', null,
                 React.createElement('h4', { className: 'text-xs font-bold uppercase tracking-wider text-slate-200' }, 'Pre-Lecture Radar'),
-                React.createElement('p', { className: 'text-xs text-slate-400' }, notifGranted ? 'Alerts configured and active' : 'Notifications disabled')
+                React.createElement('p', { className: 'text-xs text-slate-400' }, 
+                  !notifSupported ? 'Notifications blocked by browser or insecure protocol' :
+                  notifGranted ? 'Alerts configured and active' : 'Notifications disabled'
+                )
               )
             ),
             React.createElement('div', { className: 'flex items-center gap-3 w-full sm:w-auto justify-end' },
@@ -306,7 +317,7 @@
                   React.createElement('option', { value: 60, className: 'bg-gray-900 text-white' }, '1 hour before')
                 )
               ),
-              !notifGranted && React.createElement('button', {
+              !notifGranted && notifSupported && React.createElement('button', {
                 onClick: requestNotificationPermission,
                 className: 'px-4 py-2 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 text-xs font-semibold hover:bg-indigo-600/50 transition-all'
               }, 'Enable')
@@ -414,9 +425,9 @@
                     )
                   ),
 
-                  // High-End Action Suite
-                  React.createElement('div', { className: 'flex items-center justify-between pt-2 border-t border-white/10' },
-                    React.createElement('div', { className: 'flex items-center gap-2.5' },
+                  // High-End Action Suite (NOW UNIFORM)
+                  React.createElement('div', { className: 'flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-white/10' },
+                    React.createElement('div', { className: 'flex flex-wrap items-center gap-2.5' },
                       React.createElement('button', {
                         onClick: () => logStatus(s.id, 'attended'),
                         className: 'px-4 py-2 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 text-xs font-bold hover:bg-emerald-500/20 active:scale-95 transition-all shadow-lg shadow-emerald-500/5'
@@ -430,7 +441,11 @@
                         className: 'px-4 py-2 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs font-bold hover:bg-amber-500/20 active:scale-95 transition-all shadow-lg shadow-amber-500/5'
                       }, '🚫 Cancelled')
                     ),
-                    React.createElement('button', { type: 'button', onClick: () => deleteSubject(s.id), className: 'text-xs font-semibold text-slate-500 hover:text-rose-400 transition-colors px-2 py-1' }, 'Purge')
+                    React.createElement('button', {
+                      type: 'button',
+                      onClick: () => deleteSubject(s.id),
+                      className: 'px-4 py-2 rounded-2xl bg-slate-500/10 border border-slate-500/30 text-slate-400 text-xs font-bold hover:bg-rose-500/20 hover:border-rose-500/40 hover:text-rose-300 active:scale-95 transition-all shadow-lg'
+                    }, '🗑️ Delete')
                   )
                 );
               })
@@ -514,23 +529,23 @@
                         ),
                         React.createElement('p', { className: 'text-xs text-slate-400 mt-1 font-medium' }, `Scheduled at ${slot.time}`)
                       ),
-                      React.createElement('div', { className: 'flex items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10' },
+                      React.createElement('div', { className: 'flex flex-wrap items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10' },
                         React.createElement('button', {
                           onClick: () => logStatus(subject.id, 'attended'),
-                          className: 'px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30 active:scale-95 transition-all'
+                          className: 'px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30 active:scale-95 transition-all'
                         }, '✓ Attended'),
                         React.createElement('button', {
                           onClick: () => logStatus(subject.id, 'missed'),
-                          className: 'px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-500/30 active:scale-95 transition-all'
+                          className: 'px-3 py-1.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-500/30 active:scale-95 transition-all'
                         }, '✕ Missed'),
                         React.createElement('button', {
                           onClick: () => logStatus(subject.id, 'cancelled'),
-                          className: 'px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 active:scale-95 transition-all'
+                          className: 'px-3 py-1.5 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 active:scale-95 transition-all'
                         }, '🚫 Cancelled'),
                         React.createElement('button', {
                           onClick: () => deleteTimetableSlot(slot.id),
-                          className: 'p-1.5 text-slate-500 hover:text-slate-300 text-xs transition-colors ml-1'
-                        }, '✕')
+                          className: 'px-3 py-1.5 rounded-2xl bg-slate-500/20 border border-slate-500/40 text-slate-300 text-xs font-bold hover:bg-rose-500/30 hover:text-rose-300 active:scale-95 transition-all'
+                        }, '🗑️ Delete')
                       )
                     );
                   })
