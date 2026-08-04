@@ -25,7 +25,6 @@
       min-height: 100vh;
     }
 
-    /* Enhanced Multidimensional Dynamic Mesh Background */
     .bg-mesh {
       position: fixed;
       inset: 0;
@@ -74,7 +73,6 @@
       100% { transform: translate(-30px, 50px) scale(0.95); }
     }
 
-    /* iOS Liquid Glass Containers */
     .glass-card {
       background: rgba(255, 255, 255, 0.035);
       backdrop-filter: blur(45px) saturate(190%);
@@ -99,6 +97,7 @@
       border: 1px solid rgba(255, 255, 255, 0.12);
       color: #f8fafc;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      box-sizing: border-box;
     }
     .glass-input:focus {
       background: rgba(2, 6, 23, 0.75);
@@ -107,7 +106,6 @@
       outline: none;
     }
 
-    /* Futuristic iOS Liquid Glass Progress Bar */
     .liquid-bar-track {
       background: rgba(0, 0, 0, 0.65);
       border: 1px solid rgba(255, 255, 255, 0.15);
@@ -180,8 +178,12 @@
     function App() {
       const [subjects, setSubjects] = useState([]);
       const [timetable, setTimetable] = useState([]);
-      const [historyLogs, setHistoryLogs] = useState({}); // Stores date-indexed attendance records
+      const [historyLogs, setHistoryLogs] = useState({});
+      const [holidays, setHolidays] = useState([]); // List of YYYY-MM-DD string dates
+      const [cancelledSingleSlots, setCancelledSingleSlots] = useState({}); // { 'YYYY-MM-DD': [slotId1, slotId2] }
+      
       const [activeTab, setActiveTab] = useState('tracker');
+      const [calendarViewMode, setCalendarViewMode] = useState('monthly'); // 'monthly' or 'daily'
       const [loaded, setLoaded] = useState(false);
       const [notifState, setNotifState] = useState('unknown');
 
@@ -193,7 +195,7 @@
 
       // Calendar Navigation State
       const [currentMonth, setCurrentMonth] = useState(new Date());
-      const [selectedCalendarDay, setSelectedCalendarDay] = useState(null);
+      const [selectedCalendarDay, setSelectedCalendarDay] = useState(new Date());
 
       const [alertLeadTime, setAlertLeadTime] = useState(10);
 
@@ -208,18 +210,25 @@
       const [ttDay, setTtDay] = useState('Monday');
       const [ttSubjectId, setTtSubjectId] = useState('');
       const [ttType, setTtType] = useState('Lecture');
-      const [ttTime, setTtTime] = useState('09:00');
+      const [ttStartTime, setTtStartTime] = useState('09:00');
+      const [ttEndTime, setTtEndTime] = useState('10:00');
+
+      const [holidayInputDate, setHolidayInputDate] = useState(() => new Date().toISOString().split('T')[0]);
 
       useEffect(() => {
         try {
-          const savedSubjects = localStorage.getItem('attendance_subjects_v13');
-          const savedTimetable = localStorage.getItem('attendance_timetable_v13');
-          const savedHistory = localStorage.getItem('attendance_history_v13');
+          const savedSubjects = localStorage.getItem('attendance_subjects_v14');
+          const savedTimetable = localStorage.getItem('attendance_timetable_v14');
+          const savedHistory = localStorage.getItem('attendance_history_v14');
+          const savedHolidays = localStorage.getItem('attendance_holidays_v14');
+          const savedCancelledSlots = localStorage.getItem('attendance_cancelled_single_v14');
           const savedLeadTime = localStorage.getItem('attendance_alert_lead_time');
           
           if (savedSubjects) setSubjects(JSON.parse(savedSubjects));
           if (savedTimetable) setTimetable(JSON.parse(savedTimetable));
           if (savedHistory) setHistoryLogs(JSON.parse(savedHistory));
+          if (savedHolidays) setHolidays(JSON.parse(savedHolidays));
+          if (savedCancelledSlots) setCancelledSingleSlots(JSON.parse(savedCancelledSlots));
           if (savedLeadTime) setAlertLeadTime(parseInt(savedLeadTime, 10));
         } catch (e) {}
 
@@ -251,16 +260,18 @@
 
       useEffect(() => {
         if (loaded) {
-          localStorage.setItem('attendance_subjects_v13', JSON.stringify(subjects));
-          localStorage.setItem('attendance_timetable_v13', JSON.stringify(timetable));
-          localStorage.setItem('attendance_history_v13', JSON.stringify(historyLogs));
+          localStorage.setItem('attendance_subjects_v14', JSON.stringify(subjects));
+          localStorage.setItem('attendance_timetable_v14', JSON.stringify(timetable));
+          localStorage.setItem('attendance_history_v14', JSON.stringify(historyLogs));
+          localStorage.setItem('attendance_holidays_v14', JSON.stringify(holidays));
+          localStorage.setItem('attendance_cancelled_single_v14', JSON.stringify(cancelledSingleSlots));
           localStorage.setItem('attendance_alert_lead_time', alertLeadTime.toString());
 
           if (accessToken) {
-            saveToGoogleDrive(accessToken, subjects, timetable, historyLogs);
+            saveToGoogleDrive(accessToken, subjects, timetable, historyLogs, holidays, cancelledSingleSlots);
           }
         }
-      }, [subjects, timetable, historyLogs, alertLeadTime, loaded]);
+      }, [subjects, timetable, historyLogs, holidays, cancelledSingleSlots, alertLeadTime, loaded]);
 
       const handleGoogleLogin = () => {
         if (!tokenClientRef.current) {
@@ -287,6 +298,8 @@
             if (cloudData.subjects) setSubjects(cloudData.subjects);
             if (cloudData.timetable) setTimetable(cloudData.timetable);
             if (cloudData.historyLogs) setHistoryLogs(cloudData.historyLogs);
+            if (cloudData.holidays) setHolidays(cloudData.holidays);
+            if (cloudData.cancelledSingleSlots) setCancelledSingleSlots(cloudData.cancelledSingleSlots);
           }
           setLastSynced(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
         } catch (err) {
@@ -296,10 +309,16 @@
         }
       };
 
-      const saveToGoogleDrive = async (token, currentSubjects, currentTimetable, currentHistory) => {
+      const saveToGoogleDrive = async (token, currentSubjects, currentTimetable, currentHistory, currentHolidays, currentCancelled) => {
         setSyncing(true);
         try {
-          const payload = JSON.stringify({ subjects: currentSubjects, timetable: currentTimetable, historyLogs: currentHistory });
+          const payload = JSON.stringify({ 
+            subjects: currentSubjects, 
+            timetable: currentTimetable, 
+            historyLogs: currentHistory,
+            holidays: currentHolidays,
+            cancelledSingleSlots: currentCancelled
+          });
           const queryRes = await fetch("https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=name='attendance_data.json'", {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -343,6 +362,11 @@
 
         const interval = setInterval(() => {
           const now = new Date();
+          const dateStr = now.toISOString().split('T')[0];
+          
+          // Check if today is a registered holiday
+          if (holidays.includes(dateStr)) return;
+
           const dayName = DAYS[now.getDay()];
           if (!dayName) return;
 
@@ -350,8 +374,10 @@
 
           timetable.forEach(slot => {
             if (slot.day !== dayName) return;
+            // Skip if this slot was cancelled specifically for today
+            if (cancelledSingleSlots[dateStr] && cancelledSingleSlots[dateStr].includes(slot.id)) return;
 
-            const [h, m] = slot.time.split(':').map(Number);
+            const [h, m] = slot.startTime.split(':').map(Number);
             const slotMinutes = h * 60 + m;
 
             if (slotMinutes - currentMinutes === alertLeadTime && now.getSeconds() < 10) {
@@ -360,7 +386,7 @@
 
               try {
                 const notification = new Notification(`Class Alert: ${subject.name}`, {
-                  body: `${slot.type} starts in ${alertLeadTime} minutes (${slot.time}). Log status now.`
+                  body: `${slot.type} starts in ${alertLeadTime} minutes (${slot.startTime} - ${slot.endTime}). Log status now.`
                 });
                 notification.onclick = () => { window.focus(); };
               } catch (err) {
@@ -371,7 +397,7 @@
         }, 10000);
 
         return () => clearInterval(interval);
-      }, [notifState, timetable, subjects, alertLeadTime]);
+      }, [notifState, timetable, subjects, holidays, cancelledSingleSlots, alertLeadTime]);
 
       const requestNotificationPermission = () => {
         if (!('Notification' in window)) {
@@ -419,7 +445,6 @@
         setTimetable(timetable.filter(t => t.subjectId !== id));
       };
 
-      // Deletes all scheduled timetable entries for a specific subject
       const deleteSubjectTimetableGroup = (subjectId) => {
         setTimetable(timetable.filter(t => t.subjectId !== subjectId));
       };
@@ -427,7 +452,6 @@
       const logStatus = (subjectId, action, targetDate) => {
         const dateKey = targetDate ? new Date(targetDate).toISOString().split('T')[0] : new Date().toISOString().split('T')[0];
 
-        // Update Overall Subject Class Counters
         setSubjects(subjects.map(s => {
           if (s.id !== subjectId) return s;
           let att = s.attended;
@@ -447,7 +471,6 @@
           return { ...s, attended: Math.max(0, att), total: Math.max(0, tot) };
         }));
 
-        // Store Action Record into History Logs
         setHistoryLogs(prev => {
           const dayRecords = prev[dateKey] || [];
           const existingIndex = dayRecords.findIndex(r => r.subjectId === subjectId);
@@ -472,12 +495,39 @@
           day: ttDay,
           subjectId: ttSubjectId,
           type: ttType,
-          time: ttTime
+          startTime: ttStartTime,
+          endTime: ttEndTime
         }]);
       };
 
+      // Permanent Master Slot Deletion
       const deleteTimetableSlot = (id) => {
         setTimetable(timetable.filter(t => t.id !== id));
+      };
+
+      // Single Day Slot Cancel / Delete
+      const cancelSlotForSpecificDay = (slotId, dateObj) => {
+        const dateKey = dateObj.toISOString().split('T')[0];
+        setCancelledSingleSlots(prev => {
+          const existing = prev[dateKey] || [];
+          if (!existing.includes(slotId)) {
+            return { ...prev, [dateKey]: [...existing, slotId] };
+          }
+          return prev;
+        });
+      };
+
+      // Holiday Management
+      const addHoliday = (e) => {
+        e.preventDefault();
+        if (!holidayInputDate) return;
+        if (!holidays.includes(holidayInputDate)) {
+          setHolidays([...holidays, holidayInputDate]);
+        }
+      };
+
+      const removeHoliday = (dateStr) => {
+        setHolidays(holidays.filter(h => h !== dateStr));
       };
 
       const getCalendarDays = () => {
@@ -750,93 +800,192 @@
             )
           ),
 
-          // TAB 2: FULL-MONTH INTERACTIVE CALENDAR & SCHEDULE MATRIX
+          // TAB 2: SCHEDULE & CALENDAR MATRIX
           activeTab === 'timetable' && React.createElement(React.Fragment, null,
             
+            // View Mode Switcher Header
             React.createElement('div', { className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-6' },
-              React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-4' },
+              React.createElement('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4' },
                 React.createElement('div', null,
-                  React.createElement('h2', { className: 'text-base font-bold text-white' }, 
-                    currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })
-                  ),
-                  React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, 'Tap any day to inspect classes, or view past attendance cues')
+                  React.createElement('h2', { className: 'text-base font-bold text-white' }, 'Schedule Calendar'),
+                  React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, 'Manage daily and monthly class timetables')
                 ),
                 React.createElement('div', { className: 'flex items-center gap-2' },
-                  React.createElement('button', {
-                    onClick: () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)),
-                    className: 'p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold'
-                  }, '←'),
-                  React.createElement('button', {
-                    onClick: () => setCurrentMonth(new Date()),
-                    className: 'px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold'
-                  }, 'Today'),
-                  React.createElement('button', {
-                    onClick: () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)),
-                    className: 'p-2 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold'
-                  }, '→')
+                  React.createElement('div', { className: 'flex gap-1 bg-black/40 p-1 rounded-2xl border border-white/10' },
+                    React.createElement('button', {
+                      onClick: () => setCalendarViewMode('monthly'),
+                      className: `px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${calendarViewMode === 'monthly' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`
+                    }, 'Monthly'),
+                    React.createElement('button', {
+                      onClick: () => setCalendarViewMode('daily'),
+                      className: `px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${calendarViewMode === 'daily' ? 'bg-indigo-600 text-white shadow-md' : 'text-slate-400 hover:text-white'}`
+                    }, 'Daily')
+                  )
                 )
               ),
 
-              React.createElement('div', { className: 'grid grid-cols-7 gap-1 text-center font-semibold text-xs text-slate-400 uppercase tracking-wider' },
-                ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => React.createElement('div', { key: day, className: 'py-1' }, day))
-              ),
+              // VIEW 1: MONTHLY CALENDAR
+              calendarViewMode === 'monthly' && React.createElement('div', { className: 'space-y-6' },
+                React.createElement('div', { className: 'flex items-center justify-between' },
+                  React.createElement('h3', { className: 'text-sm font-bold text-indigo-300' }, 
+                    currentMonth.toLocaleString('default', { month: 'long', year: 'numeric' })
+                  ),
+                  React.createElement('div', { className: 'flex items-center gap-2' },
+                    React.createElement('button', {
+                      onClick: () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1)),
+                      className: 'p-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold'
+                    }, '←'),
+                    React.createElement('button', {
+                      onClick: () => setCurrentMonth(new Date()),
+                      className: 'px-2.5 py-1 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold'
+                    }, 'Today'),
+                    React.createElement('button', {
+                      onClick: () => setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1)),
+                      className: 'p-1.5 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 text-xs font-bold'
+                    }, '→')
+                  )
+                ),
 
-              React.createElement('div', { className: 'grid grid-cols-7 gap-2' },
-                getCalendarDays().map((dateObj, idx) => {
-                  if (!dateObj) {
-                    return React.createElement('div', { key: `empty-${idx}`, className: 'h-16 sm:h-20 rounded-2xl bg-transparent' });
-                  }
+                React.createElement('div', { className: 'grid grid-cols-7 gap-1 text-center font-semibold text-xs text-slate-400 uppercase tracking-wider' },
+                  ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => React.createElement('div', { key: day, className: 'py-1' }, day))
+                ),
 
-                  const dateKey = dateObj.toISOString().split('T')[0];
-                  const dayName = DAYS[dateObj.getDay()];
-                  const daySlots = timetable.filter(t => t.day === dayName);
-                  const isToday = new Date().toDateString() === dateObj.toDateString();
-                  const isPast = dateObj < new Date(new Date().setHours(0,0,0,0));
+                React.createElement('div', { className: 'grid grid-cols-7 gap-2' },
+                  getCalendarDays().map((dateObj, idx) => {
+                    if (!dateObj) {
+                      return React.createElement('div', { key: `empty-${idx}`, className: 'h-16 sm:h-20 rounded-2xl bg-transparent' });
+                    }
 
-                  const dayLogs = historyLogs[dateKey] || [];
+                    const dateKey = dateObj.toISOString().split('T')[0];
+                    const dayName = DAYS[dateObj.getDay()];
+                    const daySlots = timetable.filter(t => t.day === dayName);
+                    const isToday = new Date().toDateString() === dateObj.toDateString();
+                    const isPast = dateObj < new Date(new Date().setHours(0,0,0,0));
+                    const isHoliday = holidays.includes(dateKey);
 
-                  return React.createElement('button', {
-                    key: dateObj.toISOString(),
-                    onClick: () => setSelectedCalendarDay(dateObj),
-                    className: `h-16 sm:h-20 rounded-2xl p-2 flex flex-col justify-between items-start border transition-all hover:border-indigo-400/60 ${isToday ? 'bg-indigo-600/20 border-indigo-500/50' : 'bg-white/[0.02] border-white/10'}`
-                  },
-                    React.createElement('div', { className: 'flex justify-between items-center w-full' },
-                      React.createElement('span', { className: `text-xs font-bold ${isToday ? 'text-indigo-300' : 'text-slate-200'}` }, dateObj.getDate()),
-                      // Visual attendance cues for past days
-                      isPast && dayLogs.length > 0 && React.createElement('div', { className: 'flex items-center gap-1' },
-                        dayLogs.map((log, i) => {
-                          if (log.status === 'attended') return React.createElement('span', { key: i, className: 'text-[10px] font-bold text-emerald-400', title: 'Attended Class' }, '✓');
-                          if (log.status === 'missed') return React.createElement('span', { key: i, className: 'text-[10px] font-bold text-rose-400', title: 'Missed Class' }, '✕');
-                          return null;
+                    const dayLogs = historyLogs[dateKey] || [];
+                    const cancelledSlotsForDay = cancelledSingleSlots[dateKey] || [];
+
+                    return React.createElement('button', {
+                      key: dateObj.toISOString(),
+                      onClick: () => setSelectedCalendarDay(dateObj),
+                      className: `h-16 sm:h-20 rounded-2xl p-2 flex flex-col justify-between items-start border transition-all hover:border-indigo-400/60 ${isHoliday ? 'bg-amber-500/10 border-amber-500/30' : isToday ? 'bg-indigo-600/20 border-indigo-500/50' : 'bg-white/[0.02] border-white/10'}`
+                    },
+                      React.createElement('div', { className: 'flex justify-between items-center w-full' },
+                        React.createElement('span', { className: `text-xs font-bold ${isHoliday ? 'text-amber-400' : isToday ? 'text-indigo-300' : 'text-slate-200'}` }, dateObj.getDate()),
+                        
+                        isHoliday ? React.createElement('span', { className: 'text-[9px] font-bold text-amber-400 uppercase' }, 'Holiday') :
+                        isPast && dayLogs.length > 0 && React.createElement('div', { className: 'flex items-center gap-0.5' },
+                          dayLogs.map((log, i) => {
+                            if (log.status === 'attended') return React.createElement('span', { key: i, className: 'text-[10px] font-bold text-emerald-400', title: 'Attended Class' }, '✓');
+                            if (log.status === 'missed') return React.createElement('span', { key: i, className: 'text-[10px] font-bold text-rose-400', title: 'Missed Class' }, '✕');
+                            return null;
+                          })
+                        )
+                      ),
+                      
+                      !isHoliday && React.createElement('div', { className: 'flex items-center gap-1 flex-wrap w-full mt-1' },
+                        daySlots.map(slot => {
+                          if (cancelledSlotsForDay.includes(slot.id)) return null;
+                          const subject = subjects.find(s => s.id === slot.subjectId);
+                          if (!subject) return null;
+
+                          const isAfterCreation = !subject.createdAt || dateKey >= subject.createdAt;
+                          if (!isAfterCreation) return null;
+
+                          return React.createElement('span', {
+                            key: slot.id,
+                            className: 'h-2 w-2 rounded-full shadow-sm',
+                            style: { backgroundColor: subject.color || '#6366f1' },
+                            title: `${subject.name} (${slot.type})`
+                          });
                         })
                       )
+                    );
+                  })
+                )
+              ),
+
+              // VIEW 2: DAILY CALENDAR & INSPECTOR
+              calendarViewMode === 'daily' && React.createElement('div', { className: 'space-y-6' },
+                React.createElement('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/[0.02] border border-white/10 rounded-2xl p-4' },
+                  React.createElement('div', null,
+                    React.createElement('h3', { className: 'text-sm font-bold text-indigo-300' }, 
+                      selectedCalendarDay.toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
                     ),
-                    
-                    // Scheduled Class Subject Color Indicators
-                    React.createElement('div', { className: 'flex items-center gap-1 flex-wrap w-full mt-1' },
-                      daySlots.map(slot => {
-                        const subject = subjects.find(s => s.id === slot.subjectId);
-                        if (!subject) return null;
+                    React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, 'Inspecting classes for selected day')
+                  ),
+                  React.createElement('input', {
+                    type: 'date',
+                    value: selectedCalendarDay.toISOString().split('T')[0],
+                    onChange: (e) => setSelectedCalendarDay(new Date(e.target.value + 'T00:00:00')),
+                    className: 'glass-input rounded-2xl px-4 py-2 text-xs font-bold text-indigo-300 cursor-pointer'
+                  })
+                ),
 
-                        // Only show visual dot if calendar date is on or after the subject creation date
-                        const isAfterCreation = !subject.createdAt || dateKey >= subject.createdAt;
-                        if (!isAfterCreation) return null;
+                (() => {
+                  const dateKey = selectedCalendarDay.toISOString().split('T')[0];
+                  const dayName = DAYS[selectedCalendarDay.getDay()];
+                  const isHoliday = holidays.includes(dateKey);
+                  const cancelledSlotsForDay = cancelledSingleSlots[dateKey] || [];
+                  
+                  const daySlots = timetable.filter(t => t.day === dayName && !cancelledSlotsForDay.includes(t.id));
 
-                        return React.createElement('span', {
-                          key: slot.id,
-                          className: 'h-2 w-2 rounded-full shadow-sm',
-                          style: { backgroundColor: subject.color || '#6366f1' },
-                          title: `${subject.name} (${slot.type})`
-                        });
-                      })
-                    )
+                  if (isHoliday) {
+                    return React.createElement('div', { className: 'text-center py-8 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-1' },
+                      React.createElement('p', { className: 'text-amber-300 font-bold text-sm' }, '🎉 Holiday Registered'),
+                      React.createElement('p', { className: 'text-amber-400/80 text-xs' }, 'All scheduled classes for this date are automatically cancelled.')
+                    );
+                  }
+
+                  if (daySlots.length === 0) {
+                    return React.createElement('div', { className: 'text-center py-8 text-slate-500 text-xs font-medium' }, `No active classes scheduled for ${selectedDayName}s.`);
+                  }
+
+                  return React.createElement('div', { className: 'space-y-3' },
+                    daySlots.map(slot => {
+                      const subject = subjects.find(s => s.id === slot.subjectId);
+                      if (!subject) return null;
+
+                      return React.createElement('div', { key: slot.id, className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white/[0.04] border border-white/10 rounded-2xl p-4' },
+                        React.createElement('div', { className: 'flex items-center gap-3' },
+                          React.createElement('span', { className: 'h-3.5 w-3.5 rounded-full flex-shrink-0', style: { backgroundColor: subject.color || '#6366f1' } }),
+                          React.createElement('div', null,
+                            React.createElement('div', { className: 'flex items-center gap-2' },
+                              React.createElement('span', { className: 'font-bold text-slate-100 text-sm' }, subject.name),
+                              React.createElement('span', { className: `px-2 py-0.5 text-[9px] font-extrabold uppercase rounded-full ${slot.type === 'Practical' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}` }, slot.type)
+                            ),
+                            React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, `Time: ${slot.startTime} - ${slot.endTime}`)
+                          )
+                        ),
+                        React.createElement('div', { className: 'flex items-center gap-2 flex-wrap' },
+                          React.createElement('button', {
+                            onClick: () => logStatus(subject.id, 'attended', selectedCalendarDay),
+                            className: 'px-3 py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30'
+                          }, '✓ Attended'),
+                          React.createElement('button', {
+                            onClick: () => logStatus(subject.id, 'missed', selectedCalendarDay),
+                            className: 'px-3 py-1.5 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-500/30'
+                          }, '✕ Missed'),
+                          React.createElement('button', {
+                            onClick: () => logStatus(subject.id, 'cancelled', selectedCalendarDay),
+                            className: 'px-3 py-1.5 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30'
+                          }, '🚫 Cancelled'),
+                          React.createElement('button', {
+                            onClick: () => cancelSlotForSpecificDay(slot.id, selectedCalendarDay),
+                            className: 'px-2.5 py-1.5 rounded-xl bg-slate-500/20 border border-slate-500/40 text-slate-300 text-xs font-bold hover:bg-rose-500/30 hover:text-rose-300',
+                            title: 'Cancel lecture for this specific day only'
+                          }, '🗑️ Day Cancel')
+                        )
+                      );
+                    })
                   );
-                })
+                })()
               )
             ),
 
-            // Pop-up Modal for Daily Schedule Details
-            selectedCalendarDay && React.createElement('div', { className: 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm' },
+            // Pop-up Modal for Monthly View Day Click
+            selectedCalendarDay && calendarViewMode === 'monthly' && React.createElement('div', { className: 'fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm' },
               React.createElement('div', { className: 'glass-modal w-full max-w-lg rounded-3xl p-6 space-y-5' },
                 React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
                   React.createElement('div', null,
@@ -852,11 +1001,21 @@
                 ),
 
                 (() => {
-                  const selectedDayName = DAYS[selectedCalendarDay.getDay()];
-                  const daySlots = timetable.filter(t => t.day === selectedDayName);
+                  const dateKey = selectedCalendarDay.toISOString().split('T')[0];
+                  const dayName = DAYS[selectedCalendarDay.getDay()];
+                  const isHoliday = holidays.includes(dateKey);
+                  const cancelledSlotsForDay = cancelledSingleSlots[dateKey] || [];
+                  const daySlots = timetable.filter(t => t.day === dayName && !cancelledSlotsForDay.includes(t.id));
+
+                  if (isHoliday) {
+                    return React.createElement('div', { className: 'text-center py-6 bg-amber-500/10 border border-amber-500/20 rounded-2xl space-y-1' },
+                      React.createElement('p', { className: 'text-amber-300 font-bold text-sm' }, '🎉 Holiday Registered'),
+                      React.createElement('p', { className: 'text-amber-400/80 text-xs' }, 'Classes cancelled on this day.')
+                    );
+                  }
 
                   if (daySlots.length === 0) {
-                    return React.createElement('p', { className: 'text-center py-6 text-slate-400 text-xs font-medium' }, `No classes scheduled for ${selectedDayName}s.`);
+                    return React.createElement('p', { className: 'text-center py-6 text-slate-400 text-xs font-medium' }, `No classes scheduled for ${dayName}s.`);
                   }
 
                   return React.createElement('div', { className: 'space-y-3 max-h-80 overflow-y-auto pr-1' },
@@ -872,7 +1031,7 @@
                               React.createElement('span', { className: 'font-bold text-slate-100 text-sm' }, subject.name),
                               React.createElement('span', { className: `px-2 py-0.5 text-[9px] font-extrabold uppercase rounded-full ${slot.type === 'Practical' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}` }, slot.type)
                             ),
-                            React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, `Start Time: ${slot.time}`)
+                            React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, `Time: ${slot.startTime} - ${slot.endTime}`)
                           )
                         ),
                         React.createElement('div', { className: 'flex items-center gap-1.5' },
@@ -885,14 +1044,10 @@
                             className: 'px-2.5 py-1 rounded-xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-500/30'
                           }, '✕ Missed'),
                           React.createElement('button', {
-                            onClick: () => logStatus(subject.id, 'cancelled', selectedCalendarDay),
-                            className: 'px-2.5 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30'
-                          }, '🚫 Cancelled'),
-                          React.createElement('button', {
-                            onClick: () => deleteTimetableSlot(slot.id),
+                            onClick: () => cancelSlotForSpecificDay(slot.id, selectedCalendarDay),
                             className: 'px-2 py-1 rounded-xl bg-slate-500/20 border border-slate-500/40 text-slate-300 text-xs font-bold hover:bg-rose-500/30 hover:text-rose-300',
-                            title: 'Delete individual lecture slot'
-                          }, '🗑️')
+                            title: 'Cancel lecture for this specific day only'
+                          }, '🗑️ Day Cancel')
                         )
                       );
                     })
@@ -901,13 +1056,47 @@
               )
             ),
 
-            // Form to Add Class to Timetable
+            // Holiday Management Panel
+            React.createElement('div', { className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-5' },
+              React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
+                React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-amber-400' }, 'Holiday Registry'),
+                React.createElement('span', { className: 'text-[10px] text-slate-500 uppercase tracking-widest' }, 'Global Cancel')
+              ),
+              React.createElement('form', { onSubmit: addHoliday, className: 'flex items-center gap-3' },
+                React.createElement('input', {
+                  type: 'date',
+                  value: holidayInputDate,
+                  onChange: (e) => setHolidayInputDate(e.target.value),
+                  className: 'glass-input flex-1 rounded-2xl px-4 py-2.5 text-xs font-bold text-amber-300 cursor-pointer'
+                }),
+                React.createElement('button', {
+                  type: 'submit',
+                  className: 'px-5 py-2.5 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 transition-all'
+                }, '+ Add Holiday')
+              ),
+
+              holidays.length > 0 && React.createElement('div', { className: 'flex items-center gap-2 flex-wrap pt-2' },
+                holidays.map(h => React.createElement('div', {
+                  key: h,
+                  className: 'flex items-center gap-2 px-3 py-1.5 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs font-bold'
+                },
+                  React.createElement('span', null, h),
+                  React.createElement('button', {
+                    type: 'button',
+                    onClick: () => removeHoliday(h),
+                    className: 'text-amber-400/60 hover:text-rose-400 font-bold ml-1'
+                  }, '✕')
+                ))
+              )
+            ),
+
+            // Form to Add Class to Master Timetable Matrix
             React.createElement('form', { onSubmit: addTimetableSlot, className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-5' },
               React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
                 React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-indigo-400' }, 'Add Class to Timetable'),
                 React.createElement('span', { className: 'text-[10px] text-slate-500 uppercase tracking-widest' }, 'Schedule Matrix')
               ),
-              React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+              React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-2 gap-4' },
                 React.createElement('div', null,
                   React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Day'),
                   React.createElement('select', {
@@ -928,7 +1117,7 @@
                   )
                 )
               ),
-              React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
+              React.createElement('div', { className: 'grid grid-cols-1 sm:grid-cols-3 gap-4' },
                 React.createElement('div', null,
                   React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Class Type'),
                   React.createElement('select', {
@@ -944,9 +1133,18 @@
                   React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Start Time'),
                   React.createElement('input', {
                     type: 'time',
-                    value: ttTime,
-                    onChange: (e) => setTtTime(e.target.value),
-                    className: 'glass-input w-full rounded-2xl px-4 py-2.5 text-sm font-medium'
+                    value: ttStartTime,
+                    onChange: (e) => setTtStartTime(e.target.value),
+                    className: 'glass-input w-full rounded-2xl px-4 py-2.5 text-sm font-medium box-border'
+                  })
+                ),
+                React.createElement('div', null,
+                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'End Time'),
+                  React.createElement('input', {
+                    type: 'time',
+                    value: ttEndTime,
+                    onChange: (e) => setTtEndTime(e.target.value),
+                    className: 'glass-input w-full rounded-2xl px-4 py-2.5 text-sm font-medium box-border'
                   })
                 )
               ),
