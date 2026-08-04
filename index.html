@@ -3,63 +3,63 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Aura — Executive Attendance Suite</title>
+  <title>Attendance Tracker</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
     body { 
       font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif; 
-      background-color: #030712;
-      color: #f3f4f6;
+      background-color: #020617;
+      color: #f8fafc;
       overflow-x: hidden;
       min-height: 100vh;
     }
-    .font-display { font-family: 'Space Grotesk', sans-serif; }
-    
-    /* Animated Mesh Glow Background */
+
+    /* Ambient Glow Effects */
     .mesh-glow {
       position: fixed;
       inset: 0;
       z-index: 0;
       pointer-events: none;
       background: 
-        radial-gradient(circle at 15% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 45%),
-        radial-gradient(circle at 85% 15%, rgba(168, 85, 247, 0.12) 0%, transparent 40%),
-        radial-gradient(circle at 50% 75%, rgba(14, 165, 233, 0.12) 0%, transparent 50%);
-      filter: blur(60px);
-      animation: meshPulse 12s ease-in-out infinite alternate;
+        radial-gradient(circle at 15% 15%, rgba(99, 102, 241, 0.25) 0%, transparent 45%),
+        radial-gradient(circle at 85% 20%, rgba(168, 85, 247, 0.2) 0%, transparent 40%),
+        radial-gradient(circle at 50% 85%, rgba(14, 165, 233, 0.2) 0%, transparent 50%);
+      filter: blur(80px);
+      animation: meshPulse 14s ease-in-out infinite alternate;
     }
     @keyframes meshPulse {
-      0% { opacity: 0.7; transform: scale(1); }
-      100% { opacity: 1; transform: scale(1.05); }
+      0% { opacity: 0.8; transform: scale(1); }
+      100% { opacity: 1; transform: scale(1.08); }
     }
 
-    /* Ultra Glassmorphism */
+    /* Transparent Liquid Glass Glassmorphism */
     .glass-card {
-      background: rgba(17, 24, 39, 0.45);
-      backdrop-filter: blur(32px);
-      -webkit-backdrop-filter: blur(32px);
-      border: 1px solid rgba(255, 255, 255, 0.08);
+      background: rgba(255, 255, 255, 0.03);
+      backdrop-filter: blur(40px);
+      -webkit-backdrop-filter: blur(40px);
+      border: 1px solid rgba(255, 255, 255, 0.12);
       box-shadow: 
-        0 30px 60px -12px rgba(0, 0, 0, 0.56),
-        inset 0 1px 0 0 rgba(255, 255, 255, 0.12);
+        0 30px 60px -12px rgba(0, 0, 0, 0.5),
+        inset 0 1px 1px 0 rgba(255, 255, 255, 0.18);
     }
     .glass-card:hover {
-      border-color: rgba(255, 255, 255, 0.16);
+      border-color: rgba(255, 255, 255, 0.22);
+      background: rgba(255, 255, 255, 0.05);
     }
 
     .glass-input {
-      background: rgba(3, 7, 18, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: #f9fafb;
+      background: rgba(2, 6, 23, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f8fafc;
       transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     }
     .glass-input:focus {
-      background: rgba(3, 7, 18, 0.8);
+      background: rgba(2, 6, 23, 0.7);
       border-color: rgba(129, 140, 248, 0.8);
-      box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.3);
+      box-shadow: 0 0 25px -5px rgba(99, 102, 241, 0.35);
       outline: none;
     }
 
@@ -74,19 +74,19 @@
       inset: -2px;
       background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%);
       border-radius: inherit;
-      filter: blur(12px);
+      filter: blur(14px);
       opacity: 0;
       z-index: -1;
       transition: opacity 0.3s ease;
     }
-    .glow-button:hover::after { opacity: 0.7; }
+    .glow-button:hover::after { opacity: 0.75; }
     .glow-button:active { transform: scale(0.98); }
 
     /* Custom Scrollbar */
     ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #030712; }
-    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.15); border-radius: 9999px; }
-    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.3); }
+    ::-webkit-scrollbar-track { background: #020617; }
+    ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.18); border-radius: 9999px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.35); }
   </style>
 </head>
 <body class="selection:bg-indigo-500 selection:text-white">
@@ -96,15 +96,17 @@
   <script>
     const { useState, useEffect } = React;
 
-    const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
     function App() {
       const [subjects, setSubjects] = useState([]);
       const [timetable, setTimetable] = useState([]);
       const [activeTab, setActiveTab] = useState('tracker');
       const [loaded, setLoaded] = useState(false);
-      const [notifGranted, setNotifGranted] = useState(false);
-      const [notifSupported, setNotifSupported] = useState(true);
+      const [notifState, setNotifState] = useState('unknown');
+
+      // Selected Calendar Date
+      const [selectedDate, setSelectedDate] = useState(() => new Date().toISOString().split('T')[0]);
 
       // Notification Lead Time (in minutes)
       const [alertLeadTime, setAlertLeadTime] = useState(10);
@@ -124,8 +126,8 @@
 
       useEffect(() => {
         try {
-          const savedSubjects = localStorage.getItem('attendance_subjects_v6');
-          const savedTimetable = localStorage.getItem('attendance_timetable_v6');
+          const savedSubjects = localStorage.getItem('attendance_subjects_v9');
+          const savedTimetable = localStorage.getItem('attendance_timetable_v9');
           const savedLeadTime = localStorage.getItem('attendance_alert_lead_time');
           
           if (savedSubjects) setSubjects(JSON.parse(savedSubjects));
@@ -134,29 +136,28 @@
         } catch (e) {}
 
         if ('Notification' in window) {
-          setNotifSupported(true);
-          setNotifGranted(Notification.permission === 'granted');
+          setNotifState(Notification.permission);
         } else {
-          setNotifSupported(false);
+          setNotifState('unsupported');
         }
         setLoaded(true);
       }, []);
 
       useEffect(() => {
         if (loaded) {
-          localStorage.setItem('attendance_subjects_v6', JSON.stringify(subjects));
-          localStorage.setItem('attendance_timetable_v6', JSON.stringify(timetable));
+          localStorage.setItem('attendance_subjects_v9', JSON.stringify(subjects));
+          localStorage.setItem('attendance_timetable_v9', JSON.stringify(timetable));
           localStorage.setItem('attendance_alert_lead_time', alertLeadTime.toString());
         }
       }, [subjects, timetable, alertLeadTime, loaded]);
 
-      // Dynamic Configurable Alert Engine
+      // Pre-Class Alert Loop
       useEffect(() => {
-        if (!notifGranted || timetable.length === 0) return;
+        if (notifState !== 'granted' || timetable.length === 0) return;
 
         const interval = setInterval(() => {
           const now = new Date();
-          const dayName = DAYS[now.getDay() - 1]; // Monday index 0
+          const dayName = DAYS[now.getDay()];
           if (!dayName) return;
 
           const currentMinutes = now.getHours() * 60 + now.getMinutes();
@@ -172,30 +173,34 @@
               if (!subject) return;
 
               try {
-                const notification = new Notification(`Aura Alert: ${subject.name}`, {
-                  body: `${slot.type} starting in ${alertLeadTime} minutes (${slot.time}). Log status now.`,
-                  icon: 'https://cdn-icons-png.flaticon.com/512/2693/2693507.png'
+                const notification = new Notification(`Class Alert: ${subject.name}`, {
+                  body: `${slot.type} starts in ${alertLeadTime} minutes (${slot.time}). Log status now.`
                 });
                 notification.onclick = () => { window.focus(); };
               } catch (err) {
-                console.warn('Native notification issue:', err);
+                console.warn('Notification error:', err);
               }
             }
           });
         }, 10000);
 
         return () => clearInterval(interval);
-      }, [notifGranted, timetable, subjects, alertLeadTime]);
+      }, [notifState, timetable, subjects, alertLeadTime]);
 
       const requestNotificationPermission = () => {
         if (!('Notification' in window)) {
-          alert('Notifications are restricted by your browser environment or connection protocol (requires HTTPS).');
+          alert('Notifications are restricted by your browser environment or connection setup.');
           return;
         }
         Notification.requestPermission().then(permission => {
-          setNotifGranted(permission === 'granted');
+          setNotifState(permission);
+          if (permission === 'granted') {
+            new Notification("Class Alerts Enabled", {
+              body: "Reminders active for your upcoming classes."
+            });
+          }
         }).catch(() => {
-          alert('Could not request notification permissions.');
+          alert('Failed to request notification permission.');
         });
       };
 
@@ -233,8 +238,13 @@
             tot += 1;
           } else if (action === 'missed') {
             tot += 1;
+          } else if (action === 'cancelled') {
+            if (tot > 0) {
+              tot -= 1;
+              if (att > tot) att = tot;
+            }
           }
-          return { ...s, attended: att, total: tot };
+          return { ...s, attended: Math.max(0, att), total: Math.max(0, tot) };
         }));
       };
 
@@ -255,24 +265,21 @@
         setTimetable(timetable.filter(t => t.id !== id));
       };
 
-      if (!loaded) return React.createElement('div', { className: 'p-12 text-center text-slate-500 font-medium tracking-wide' }, 'CALIBRATING SUITE...');
+      // Calendar Calculations
+      const selectedDayName = DAYS[new Date(selectedDate + 'T00:00:00').getDay()];
+      const activeCalendarSlots = timetable.filter(t => t.day === selectedDayName);
+
+      if (!loaded) return React.createElement('div', { className: 'p-12 text-center text-slate-500 font-medium tracking-wide' }, 'Loading...');
 
       return React.createElement('div', { className: 'min-h-screen pb-24 text-slate-100' },
         
-        // Navigation Header
-        React.createElement('header', { className: 'sticky top-0 z-30 border-b border-white/10 bg-gray-950/60 backdrop-blur-2xl shadow-2xl' },
+        // Navigation Header (No Branding / Logos)
+        React.createElement('header', { className: 'sticky top-0 z-30 border-b border-white/10 bg-slate-950/20 backdrop-blur-3xl shadow-2xl' },
           React.createElement('div', { className: 'mx-auto flex max-w-3xl items-center justify-between px-6 py-4' },
-            React.createElement('div', { className: 'flex items-center gap-3' },
-              React.createElement('div', { className: 'h-8 w-8 rounded-xl bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 p-0.5 shadow-lg shadow-indigo-500/30' },
-                React.createElement('div', { className: 'h-full w-full rounded-[10px] bg-gray-950 flex items-center justify-center' },
-                  React.createElement('span', { className: 'text-xs font-bold text-indigo-400' }, 'A')
-                )
-              ),
-              React.createElement('h1', { className: 'text-lg font-bold font-display tracking-wider uppercase bg-gradient-to-r from-white via-slate-200 to-slate-400 bg-clip-text text-transparent' }, 'Aura')
-            ),
+            React.createElement('h1', { className: 'text-base font-bold tracking-wide text-white/90' }, 'Attendance Tracker'),
 
             React.createElement('div', { className: 'flex items-center gap-3' },
-              React.createElement('div', { className: 'flex gap-1 bg-white/[0.04] p-1 rounded-2xl border border-white/10' },
+              React.createElement('div', { className: 'flex gap-1 bg-white/[0.03] p-1 rounded-2xl border border-white/10' },
                 React.createElement('button', {
                   onClick: () => setActiveTab('tracker'),
                   className: `px-4 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'tracker' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
@@ -289,16 +296,18 @@
         React.createElement('main', { className: 'mx-auto max-w-3xl px-4 py-8 space-y-8' },
           
           // GLOBAL NOTIFICATION CONFIG BAR
-          React.createElement('div', { className: 'glass-card rounded-3xl p-4 px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border border-white/10' },
+          React.createElement('div', { className: 'glass-card rounded-3xl p-4 px-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4' },
             React.createElement('div', { className: 'flex items-center gap-3' },
-              React.createElement('div', { className: `p-2.5 rounded-2xl ${notifGranted ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}` },
-                notifGranted ? '🔔' : '🔕'
+              React.createElement('div', { className: `p-2.5 rounded-2xl ${notifState === 'granted' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'}` },
+                notifState === 'granted' ? '🔔' : '🔕'
               ),
               React.createElement('div', null,
-                React.createElement('h4', { className: 'text-xs font-bold uppercase tracking-wider text-slate-200' }, 'Pre-Lecture Radar'),
+                React.createElement('h4', { className: 'text-xs font-bold uppercase tracking-wider text-slate-200' }, 'Pre-Lecture Notifications'),
                 React.createElement('p', { className: 'text-xs text-slate-400' }, 
-                  !notifSupported ? 'Notifications blocked by browser or insecure protocol' :
-                  notifGranted ? 'Alerts configured and active' : 'Notifications disabled'
+                  notifState === 'granted' ? 'Alerts active before scheduled classes' :
+                  notifState === 'denied' ? 'Permission blocked in browser settings' :
+                  notifState === 'unsupported' ? 'Notifications restricted on unsecure or local origin' :
+                  'Click enable to activate class alerts'
                 )
               )
             ),
@@ -310,17 +319,17 @@
                   onChange: (e) => setAlertLeadTime(parseInt(e.target.value, 10)),
                   className: 'bg-transparent text-xs font-bold text-indigo-300 outline-none cursor-pointer'
                 },
-                  React.createElement('option', { value: 5, className: 'bg-gray-900 text-white' }, '5 min before'),
-                  React.createElement('option', { value: 10, className: 'bg-gray-900 text-white' }, '10 min before'),
-                  React.createElement('option', { value: 15, className: 'bg-gray-900 text-white' }, '15 min before'),
-                  React.createElement('option', { value: 30, className: 'bg-gray-900 text-white' }, '30 min before'),
-                  React.createElement('option', { value: 60, className: 'bg-gray-900 text-white' }, '1 hour before')
+                  React.createElement('option', { value: 5, className: 'bg-slate-900 text-white' }, '5 min before'),
+                  React.createElement('option', { value: 10, className: 'bg-slate-900 text-white' }, '10 min before'),
+                  React.createElement('option', { value: 15, className: 'bg-slate-900 text-white' }, '15 min before'),
+                  React.createElement('option', { value: 30, className: 'bg-slate-900 text-white' }, '30 min before'),
+                  React.createElement('option', { value: 60, className: 'bg-slate-900 text-white' }, '1 hour before')
                 )
               ),
-              !notifGranted && notifSupported && React.createElement('button', {
+              notifState !== 'granted' && React.createElement('button', {
                 onClick: requestNotificationPermission,
                 className: 'px-4 py-2 rounded-2xl bg-indigo-600/30 border border-indigo-500/40 text-indigo-200 text-xs font-semibold hover:bg-indigo-600/50 transition-all'
-              }, 'Enable')
+              }, 'Enable Alerts')
             )
           ),
 
@@ -329,84 +338,84 @@
             // Add Subject Form
             React.createElement('form', { onSubmit: addSubject, className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-5' },
               React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
-                React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-indigo-400 font-display' }, 'Register Course Metric'),
-                React.createElement('span', { className: 'text-[10px] text-slate-500 uppercase tracking-widest' }, 'Real-time Tracking')
+                React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-indigo-400' }, 'Add Subject'),
+                React.createElement('span', { className: 'text-[10px] text-slate-500 uppercase tracking-widest' }, 'Real-time Stats')
               ),
               React.createElement('input', {
                 type: 'text',
-                placeholder: 'Course Title (e.g. Pharmacology)',
+                placeholder: 'Subject Name (e.g. Pharmacology)',
                 value: name,
                 onChange: (e) => setName(e.target.value),
                 className: 'glass-input w-full rounded-2xl px-5 py-3.5 text-sm font-medium focus:ring-2 focus:ring-indigo-500/50'
               }),
               React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
                 React.createElement('div', null,
-                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Min Floor %'),
+                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Min Required %'),
                   React.createElement('input', { type: 'number', value: min, onChange: (e) => setMin(e.target.value), className: 'glass-input w-full rounded-2xl px-4 py-2.5 text-sm font-medium' })
                 ),
                 React.createElement('div', null,
-                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Target Objective %'),
+                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Target %'),
                   React.createElement('input', { type: 'number', value: target, onChange: (e) => setTarget(e.target.value), className: 'glass-input w-full rounded-2xl px-4 py-2.5 text-sm font-medium' })
                 )
               ),
               React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
                 React.createElement('div', null,
-                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Attended Units'),
+                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Attended Classes'),
                   React.createElement('input', { type: 'number', value: attended, onChange: (e) => setAttended(e.target.value), className: 'glass-input w-full rounded-2xl px-4 py-2.5 text-sm font-medium' })
                 ),
                 React.createElement('div', null,
-                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Total Executed Units'),
+                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Total Held Classes'),
                   React.createElement('input', { type: 'number', value: total, onChange: (e) => setTotal(e.target.value), className: 'glass-input w-full rounded-2xl px-4 py-2.5 text-sm font-medium' })
                 )
               ),
               React.createElement('button', {
                 type: 'submit',
                 className: 'glow-button w-full rounded-2xl py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-xl shadow-indigo-500/20'
-              }, 'Commit Course Metric')
+              }, 'Add Subject')
             ),
 
             // Subject Cards List
-            subjects.length === 0 ? React.createElement('div', { className: 'glass-card rounded-3xl p-16 text-center text-slate-500 font-medium' }, 'No active subject telemetry registered.') :
+            subjects.length === 0 ? React.createElement('div', { className: 'glass-card rounded-3xl p-16 text-center text-slate-500 font-medium' }, 'No subjects added yet.') :
             React.createElement('div', { className: 'space-y-5' },
               subjects.map(s => {
                 const pct = s.total > 0 ? (s.attended / s.total) * 100 : 0;
                 const formattedPct = pct.toFixed(1);
                 
                 let barColor = 'bg-slate-600';
-                let statusText = 'Pending Data';
+                let statusText = 'No Classes';
                 let statusColor = 'text-slate-400';
                 let adviceText = '';
 
                 if (s.total > 0) {
                   if (pct < s.min) {
                     barColor = 'bg-gradient-to-r from-rose-600 to-red-500';
-                    statusText = 'Deficit Danger';
+                    statusText = 'Below Minimum';
                     statusColor = 'text-rose-400 font-bold';
                     const needed = Math.ceil((s.min * s.total - 100 * s.attended) / (100 - s.min));
-                    adviceText = `Requires next ${needed} consecutive unit${needed === 1 ? '' : 's'} to resolve deficit (${s.min}%)`;
+                    adviceText = `Attend next ${needed} class${needed === 1 ? '' : 'es'} to reach min (${s.min}%)`;
                   } else if (pct < s.target) {
                     barColor = 'bg-gradient-to-r from-amber-500 to-orange-400';
-                    statusText = 'Below Objective';
+                    statusText = 'Below Target';
                     statusColor = 'text-amber-400 font-bold';
                     const needed = Math.ceil((s.target * s.total - 100 * s.attended) / (100 - s.target));
-                    adviceText = `Attend next ${needed} unit${needed === 1 ? '' : 's'} to hit target (${s.target}%)`;
+                    adviceText = `Attend next ${needed} class${needed === 1 ? '' : 'es'} to hit target (${s.target}%)`;
                   } else {
                     barColor = 'bg-gradient-to-r from-emerald-400 via-teal-400 to-cyan-400';
-                    statusText = 'Optimal Status';
+                    statusText = 'On Track';
                     statusColor = 'text-emerald-400 font-bold';
                     const bunkable = Math.floor((100 * s.attended - s.target * s.total) / s.target);
-                    adviceText = bunkable > 0 ? `Safe cushion: ${bunkable} unit${bunkable === 1 ? '' : 's'} can be bypassed.` : `Holding exact objective baseline.`;
+                    adviceText = bunkable > 0 ? `Can safely skip ${bunkable} class${bunkable === 1 ? '' : 'es'}.` : `At target threshold.`;
                   }
                 }
 
                 return React.createElement('div', { key: s.id, className: 'glass-card rounded-3xl p-6 space-y-5 transition-all duration-300' },
                   React.createElement('div', { className: 'flex items-center justify-between' },
                     React.createElement('div', null,
-                      React.createElement('h3', { className: 'font-bold text-white text-lg font-display tracking-tight' }, s.name),
-                      React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, `${s.attended} attended out of ${s.total} total sessions`)
+                      React.createElement('h3', { className: 'font-bold text-white text-lg tracking-tight' }, s.name),
+                      React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, `Attended ${s.attended} of ${s.total} classes`)
                     ),
                     React.createElement('div', { className: 'text-right' },
-                      React.createElement('span', { className: 'text-2xl font-black font-display tracking-tight text-white' }, `${formattedPct}%`),
+                      React.createElement('span', { className: 'text-2xl font-black tracking-tight text-white' }, `${formattedPct}%`),
                       React.createElement('div', { className: `text-[11px] uppercase tracking-wider ${statusColor}` }, statusText)
                     )
                   ),
@@ -415,8 +424,8 @@
                   React.createElement('div', { className: 'space-y-2' },
                     React.createElement('div', { className: 'relative h-3.5 w-full overflow-hidden rounded-full bg-black/60 p-0.5 border border-white/10 shadow-inner' },
                       React.createElement('div', { className: `h-full rounded-full transition-all duration-700 ${barColor}`, style: { width: `${Math.min(pct, 100)}%` } }),
-                      React.createElement('div', { className: 'absolute top-0 bottom-0 w-0.5 bg-rose-500 z-10 shadow-[0_0_8px_#f43f5e]', style: { left: `${Math.min(s.min, 100)}%` }, title: `Min Floor: ${s.min}%` }),
-                      React.createElement('div', { className: 'absolute top-0 bottom-0 w-0.5 bg-emerald-400 z-10 shadow-[0_0_8px_#34d399]', style: { left: `${Math.min(s.target, 100)}%` }, title: `Target Floor: ${s.target}%` })
+                      React.createElement('div', { className: 'absolute top-0 bottom-0 w-0.5 bg-rose-500 z-10 shadow-[0_0_8px_#f43f5e]', style: { left: `${Math.min(s.min, 100)}%` }, title: `Min Requirement: ${s.min}%` }),
+                      React.createElement('div', { className: 'absolute top-0 bottom-0 w-0.5 bg-emerald-400 z-10 shadow-[0_0_8px_#34d399]', style: { left: `${Math.min(s.target, 100)}%` }, title: `Target: ${s.target}%` })
                     ),
                     React.createElement('div', { className: 'flex justify-between items-center text-[11px] text-slate-400 font-medium px-1' },
                       React.createElement('span', null, `Min: ${s.min}%`),
@@ -425,7 +434,7 @@
                     )
                   ),
 
-                  // High-End Action Suite (NOW UNIFORM)
+                  // Actions
                   React.createElement('div', { className: 'flex flex-wrap items-center justify-between gap-2.5 pt-3 border-t border-white/10' },
                     React.createElement('div', { className: 'flex flex-wrap items-center gap-2.5' },
                       React.createElement('button', {
@@ -452,13 +461,68 @@
             )
           ),
 
-          // TAB 2: TIMETABLE & ACTION LOGGING
+          // TAB 2: TIMETABLE & DAILY CALENDAR
           activeTab === 'timetable' && React.createElement(React.Fragment, null,
-            // Add Schedule Slot
+            
+            // Interactive Daily Calendar View
+            React.createElement('div', { className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-6' },
+              React.createElement('div', { className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/10 pb-4' },
+                React.createElement('div', null,
+                  React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-indigo-400' }, 'Daily Schedule Calendar'),
+                  React.createElement('p', { className: 'text-xs text-slate-400 mt-0.5' }, `Day: ${selectedDayName}`)
+                ),
+                React.createElement('input', {
+                  type: 'date',
+                  value: selectedDate,
+                  onChange: (e) => setSelectedDate(e.target.value),
+                  className: 'glass-input rounded-2xl px-4 py-2 text-xs font-bold text-indigo-300 cursor-pointer'
+                })
+              ),
+
+              // Scheduled classes
+              activeCalendarSlots.length === 0 ? 
+              React.createElement('div', { className: 'text-center py-8 text-slate-500 text-xs font-medium' }, `No classes scheduled for ${selectedDayName}.`) :
+              React.createElement('div', { className: 'space-y-3' },
+                activeCalendarSlots.map(slot => {
+                  const subject = subjects.find(s => s.id === slot.subjectId);
+                  if (!subject) return null;
+
+                  return React.createElement('div', { key: slot.id, className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/[0.02] border border-white/10 rounded-2xl p-4 hover:border-white/20 transition-all' },
+                    React.createElement('div', null,
+                      React.createElement('div', { className: 'flex items-center gap-2.5' },
+                        React.createElement('span', { className: 'font-bold text-slate-100 text-base' }, subject.name),
+                        React.createElement('span', { className: `px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-full ${slot.type === 'Practical' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}` }, slot.type)
+                      ),
+                      React.createElement('p', { className: 'text-xs text-slate-400 mt-1 font-medium' }, `Start Time: ${slot.time}`)
+                    ),
+                    React.createElement('div', { className: 'flex flex-wrap items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10' },
+                      React.createElement('button', {
+                        onClick: () => logStatus(subject.id, 'attended'),
+                        className: 'px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30 active:scale-95 transition-all'
+                      }, '✓ Attended'),
+                      React.createElement('button', {
+                        onClick: () => logStatus(subject.id, 'missed'),
+                        className: 'px-3 py-1.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-500/30 active:scale-95 transition-all'
+                      }, '✕ Missed'),
+                      React.createElement('button', {
+                        onClick: () => logStatus(subject.id, 'cancelled'),
+                        className: 'px-3 py-1.5 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 active:scale-95 transition-all'
+                      }, '🚫 Cancelled'),
+                      React.createElement('button', {
+                        onClick: () => deleteTimetableSlot(slot.id),
+                        className: 'px-3 py-1.5 rounded-2xl bg-slate-500/20 border border-slate-500/40 text-slate-300 text-xs font-bold hover:bg-rose-500/30 hover:text-rose-300 active:scale-95 transition-all'
+                      }, '🗑️ Delete')
+                    )
+                  );
+                })
+              )
+            ),
+
+            // Add Schedule Slot Form
             React.createElement('form', { onSubmit: addTimetableSlot, className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-5' },
               React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
-                React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-indigo-400 font-display' }, 'Schedule Session Entry'),
-                React.createElement('span', { className: 'text-[10px] text-slate-500 uppercase tracking-widest' }, 'Timetable Matrix')
+                React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-indigo-400' }, 'Add Class to Timetable'),
+                React.createElement('span', { className: 'text-[10px] text-slate-500 uppercase tracking-widest' }, 'Schedule Matrix')
               ),
               React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
                 React.createElement('div', null,
@@ -467,30 +531,30 @@
                     value: ttDay,
                     onChange: (e) => setTtDay(e.target.value),
                     className: 'glass-input w-full rounded-2xl px-4 py-3 text-sm font-medium'
-                  }, DAYS.map(d => React.createElement('option', { key: d, value: d, className: 'bg-gray-900 text-white' }, d)))
+                  }, DAYS.map(d => React.createElement('option', { key: d, value: d, className: 'bg-slate-900 text-white' }, d)))
                 ),
                 React.createElement('div', null,
-                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Course Target'),
+                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Subject'),
                   React.createElement('select', {
                     value: ttSubjectId,
                     onChange: (e) => setTtSubjectId(e.target.value),
                     className: 'glass-input w-full rounded-2xl px-4 py-3 text-sm font-medium'
                   }, 
-                    React.createElement('option', { value: '', className: 'bg-gray-900 text-slate-400' }, 'Select Subject'),
-                    subjects.map(s => React.createElement('option', { key: s.id, value: s.id, className: 'bg-gray-900 text-white' }, s.name))
+                    React.createElement('option', { value: '', className: 'bg-slate-900 text-slate-400' }, 'Select Subject'),
+                    subjects.map(s => React.createElement('option', { key: s.id, value: s.id, className: 'bg-slate-900 text-white' }, s.name))
                   )
                 )
               ),
               React.createElement('div', { className: 'grid grid-cols-2 gap-4' },
                 React.createElement('div', null,
-                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Session Type'),
+                  React.createElement('label', { className: 'mb-1.5 block text-xs font-semibold text-slate-400' }, 'Class Type'),
                   React.createElement('select', {
                     value: ttType,
                     onChange: (e) => setTtType(e.target.value),
                     className: 'glass-input w-full rounded-2xl px-4 py-3 text-sm font-medium'
                   },
-                    React.createElement('option', { value: 'Lecture', className: 'bg-gray-900 text-white' }, 'Lecture'),
-                    React.createElement('option', { value: 'Practical', className: 'bg-gray-900 text-white' }, 'Practical')
+                    React.createElement('option', { value: 'Lecture', className: 'bg-slate-900 text-white' }, 'Lecture'),
+                    React.createElement('option', { value: 'Practical', className: 'bg-slate-900 text-white' }, 'Practical')
                   )
                 ),
                 React.createElement('div', null,
@@ -506,52 +570,8 @@
               React.createElement('button', {
                 type: 'submit',
                 className: 'glow-button w-full rounded-2xl py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-xl shadow-indigo-500/20'
-              }, 'Embed Schedule Entry')
-            ),
-
-            // Daily Schedule View
-            DAYS.map(day => {
-              const daySlots = timetable.filter(t => t.day === day);
-              if (daySlots.length === 0) return null;
-
-              return React.createElement('div', { key: day, className: 'glass-card rounded-3xl p-6 space-y-4' },
-                React.createElement('h3', { className: 'text-sm font-bold text-indigo-300 font-display tracking-wider uppercase border-b border-white/10 pb-3' }, day),
-                React.createElement('div', { className: 'space-y-3' },
-                  daySlots.map(slot => {
-                    const subject = subjects.find(s => s.id === slot.subjectId);
-                    if (!subject) return null;
-
-                    return React.createElement('div', { key: slot.id, className: 'flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/[0.03] border border-white/10 rounded-2xl p-4 hover:border-white/20 transition-all' },
-                      React.createElement('div', null,
-                        React.createElement('div', { className: 'flex items-center gap-2.5' },
-                          React.createElement('span', { className: 'font-bold text-slate-100 text-base font-display' }, subject.name),
-                          React.createElement('span', { className: `px-2.5 py-0.5 text-[10px] font-extrabold uppercase tracking-wider rounded-full ${slot.type === 'Practical' ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30'}` }, slot.type)
-                        ),
-                        React.createElement('p', { className: 'text-xs text-slate-400 mt-1 font-medium' }, `Scheduled at ${slot.time}`)
-                      ),
-                      React.createElement('div', { className: 'flex flex-wrap items-center justify-between sm:justify-end gap-2 pt-2 sm:pt-0 border-t sm:border-t-0 border-white/10' },
-                        React.createElement('button', {
-                          onClick: () => logStatus(subject.id, 'attended'),
-                          className: 'px-3 py-1.5 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-xs font-bold hover:bg-emerald-500/30 active:scale-95 transition-all'
-                        }, '✓ Attended'),
-                        React.createElement('button', {
-                          onClick: () => logStatus(subject.id, 'missed'),
-                          className: 'px-3 py-1.5 rounded-2xl bg-rose-500/20 border border-rose-500/40 text-rose-300 text-xs font-bold hover:bg-rose-500/30 active:scale-95 transition-all'
-                        }, '✕ Missed'),
-                        React.createElement('button', {
-                          onClick: () => logStatus(subject.id, 'cancelled'),
-                          className: 'px-3 py-1.5 rounded-2xl bg-amber-500/20 border border-amber-500/40 text-amber-300 text-xs font-bold hover:bg-amber-500/30 active:scale-95 transition-all'
-                        }, '🚫 Cancelled'),
-                        React.createElement('button', {
-                          onClick: () => deleteTimetableSlot(slot.id),
-                          className: 'px-3 py-1.5 rounded-2xl bg-slate-500/20 border border-slate-500/40 text-slate-300 text-xs font-bold hover:bg-rose-500/30 hover:text-rose-300 active:scale-95 transition-all'
-                        }, '🗑️ Delete')
-                      )
-                    );
-                  })
-                )
-              );
-            })
+              }, 'Add Class Schedule')
+            )
           )
         )
       );
