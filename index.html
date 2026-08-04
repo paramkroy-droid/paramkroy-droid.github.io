@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Attendance Ledger</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- React and ReactDOM CDNs -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <!-- Lucide Icons CDN -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,wght@0,600;0,700;1,500&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+  <style>
+    .font-display { font-family: 'Fraunces', Georgia, serif; }
+    .font-data { font-family: 'IBM Plex Mono', 'Courier New', monospace; }
+    .app-root { font-family: 'Inter', system-ui, sans-serif; }
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    @media (min-width: 640px) { .ai-drawer { width: 420px; } }
+  </style>
+</head>
+<body class="bg-slate-50 app-root">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useRef, useMemo, useCallback } = React;
+    const {
+      Plus, Minus, Pencil, Trash2, X, Settings, Send, Sparkles,
+      Loader2, Calendar, BookOpen, Clock,
+      AlertTriangle, GraduationCap, KeyRound, Info
+    } = lucide;
+
+    const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    const DAY_SHORT = { Monday: 'Mon', Tuesday: 'Tue', Wednesday: 'Wed', Thursday: 'Thu', Friday: 'Fri', Saturday: 'Sat', Sunday: 'Sun' };
+
+    const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+    const clamp = (n, lo, hi) => Math.max(lo, Math.min(hi, n));
+    const getPct = (attended, total) => (total > 0 ? (attended / total) * 100 : 0);
+
+    function getStatus(attended, total, min, target) {
+      if (total === 0) return 'neutral';
+      const pct = getPct(attended, total);
+      if (pct >= target) return 'green';
+      if (pct >= min) return 'yellow';
+      return 'red';
+    }
+
+    const STATUS_STYLES = {
+      green: { hex: '#059669', chip: 'bg-emerald-50 text-emerald-700 border-emerald-200', ring: 'ring-emerald-100', label: 'On Track' },
+      yellow: { hex: '#D97706', chip: 'bg-amber-50 text-amber-700 border-amber-200', ring: 'ring-amber-100', label: 'Needs Attention' },
+      red: { hex: '#DC2626', chip: 'bg-rose-50 text-rose-700 border-rose-200', ring: 'ring-rose-100', label: 'At Risk' },
+      neutral: { hex: '#94A3B8', chip: 'bg-slate-100 text-slate-500 border-slate-200', ring: 'ring-slate-100', label: 'No Classes Yet' },
+    };
+
+    function classesCanMiss(attended, total, thresholdPct) {
+      if (thresholdPct <= 0) return Infinity;
+      if (total === 0 && attended === 0) return 0;
+      return Math.floor((attended * 100) / thresholdPct - total);
+    }
+
+    function classesNeededToReach(attended, total, thresholdPct) {
+      if (thresholdPct >= 100) return attended === total ? 0 : null;
+      const raw = (thresholdPct * total - 100 * attended) / (100 - thresholdPct);
+      return Math.max(0, Math.ceil(raw - 1e-9));
+    }
+
+    function formatTime12(t) {
+      if (!t) return '';
+      const [hStr, mStr] = t.split(':');
+      let h = parseInt(hStr, 10);
+      const period = h >= 12 ? 'PM' : 'AM';
+      h = h % 12;
+      if (h === 0) h = 12;
+      return `${h}:${mStr} ${period}`;
+    }
+
+    function durationLabel(start, end) {
+      if (!start || !end) return '';
+      const [sh, sm] = start.split(':').map(Number);
+      const [eh, em] = end.split(':').map(Number);
+      let mins = eh * 60 + em - (sh * 60 + sm);
+      if (mins <= 0) return '';
+      const h = Math.floor(mins / 60), m = mins % 60;
+      if (h === 0) return `${m} min`;
+      if (m === 0) return `${h} hr`;
+      return `${h} hr ${m} min`;
+    }
+
+    function todayName() {
+      try {
+        const n = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+        return DAYS.includes(n) ? n : 'Monday';
+      } catch (e) {
+        return 'Monday';
+      }
+    }
+
+    async function loadKey(key, fallback) {
+      try {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : fallback;
+      } catch (e) {
+        return fallback;
+      }
+    }
+
+    async function saveKey(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function buildLiveContext(subjects, timetable) {
+      const subjectsData = subjects.map((s) => {
+        const pct = getPct(s.attended, s.total);
+        return {
+          name: s.name,
+          classesAttended: s.attended,
+          classesHeld: s.total,
+          currentAttendancePercent: Math.round(pct * 10) / 10,
+          minRequiredPercent: s.min,
+          targetPercent: s.target,
+          maxClassesCanMissBeforeBelowTarget: Math.max(0, classesCanMiss(s.attended, s.total, s.target)),
+          maxClassesCanMissBeforeBelowMinimum: Math.max(0, classesCanMiss(s.attended, s.total, s.min)),
+          classesNeededConsecutivelyToReachTarget: classesNeededToReach(s.attended, s.total, s.target),
+          classesNeededConsecutivelyToReachMinimum: pct < s.min ? classesNeededToReach(s.attended, s.total, s.min) : 0,
+        };
+      });
+      const timetableData = timetable
+        .slice()
+        .sort((a, b) => DAYS.indexOf(a.day) - DAYS.indexOf(b.day) || a.start.localeCompare(b.start))
+        .map((t) => {
+          const subj = subjects.find((s) => s.id === t.subjectId);
+          return { day: t.day, subject: subj ? subj.name : '(deleted subject)', type: t.type, start: t.start, end: t.end };
+        });
+      return { subjects: subjectsData, timetable: timetableData };
+    }
+
+    function buildSystemPrompt(liveContext) {
+      return [
+        "You are the built-in AI study assistant inside a student's Attendance Tracker web app.",
+        'You can see the live attendance data and weekly timetable below. It is accurate as of right now — trust it completely, never claim you lack access to it.',
+        '',
+        'LIVE DATA (JSON):',
+        JSON.stringify(liveContext, null, 2),
+        '',
+        'Keep answers short, specific, and encouraging.',
+      ].join('\n');
+    }
+
+    async function callGemini(apiKey, liveContext, history) {
+      const system = buildSystemPrompt(liveContext);
+      const url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent';
+      const contents = history.map((m) => ({
+        role: m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }],
+      }));
+      const res = await fetch(url + `?key=${apiKey}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          systemInstruction: { parts: [{ text: system }] },
+          generationConfig: { maxOutputTokens: 1000 },
+        }),
+      });
+      if (!res.ok) throw new Error(`Gemini request failed (${res.status})`);
+      const data = await res.json();
+      const parts = (data && data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts) || [];
+      return parts.map((p) => p.text || '').join('').trim() || "I couldn't put together a response there — try rephrasing?";
+    }
+
+    function StatusChip({ status }) {
+      const s = STATUS_STYLES[status];
+      return (
+        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-semibold ${s.chip}`}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: s.hex }} />
+          {s.label}
+        </span>
+      );
+    }
+
+    function ProgressLedgerBar({ pct, min, target, status }) {
+      const s = STATUS_STYLES[status];
+      const fillWidth = clamp(pct, 0, 100);
+      return (
+        <div className="relative pt-2 pb-1">
+          <div className="relative h-2.5 w-full rounded-full bg-slate-100">
+            <div className="h-full rounded-full transition-all duration-500 ease-out" style={{ width: `${fillWidth}%`, backgroundColor: s.hex }} />
+            <div className="absolute rounded bg-rose-400" style={{ left: `calc(${clamp(min, 0, 100)}% - 1px)`, top: '-4px', height: '18px', width: '2px' }} title={`Minimum ${min}%`} />
+            <div className="absolute rounded bg-emerald-500" style={{ left: `calc(${clamp(target, 0, 100)}% - 1px)`, top: '-4px', height: '18px', width: '2px' }} title={`Target ${target}%`} />
+          </div>
+          <div className="mt-1.5 flex items-center justify-between text-xs font-medium text-slate-400">
+            <span>Min {min}%</span>
+            <span>Target {target}%</span>
+          </div>
+        </div>
+      );
+    }
+
+    function CounterRow({ label, value, onInc, onDec, disabledDec }) {
+      return (
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold uppercase tracking-wide text-slate-400">{label}</span>
+          <div className="flex items-center gap-2">
+            <button type="button" onClick={onDec} disabled={disabledDec} className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50 disabled:opacity-30"><Minus size={14} /></button>
+            <span className="font-data w-7 text-center text-sm font-semibold tabular-nums text-slate-800">{value}</span>
+            <button type="button" onClick={onInc} className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-200 text-slate-600 transition hover:bg-slate-50"><Plus size={14} /></button>
+          </div>
+        </div>
+      );
+    }
+
+    function EmptyState({ icon: Icon, title, message, actionLabel, onAction }) {
+      return (
+        <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-white/60 px-6 py-14 text-center">
+          <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-50 text-indigo-500"><Icon size={22} /></div>
+          <h3 className="font-display text-lg font-semibold text-slate-800">{title}</h3>
+          <p className="mt-1 max-w-sm text-sm text-slate-500">{message}</p>
+          {actionLabel && (
+            <button type="button" onClick={onAction} className="mt-5 inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700">
+              <Plus size={16} /> {actionLabel}
+            </button>
+          )}
+        </div>
+      );
+    }
+
+    function ConfirmDialog({ title, message, confirmLabel, onConfirm, onCancel }) {
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onCancel}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-full bg-rose-50 text-rose-600"><AlertTriangle size={18} /></div>
+            <h3 className="font-display text-base font-semibold text-slate-800">{title}</h3>
+            <p className="mt-1.5 text-sm text-slate-500">{message}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={onCancel} className="rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-medium text-slate-600">Cancel</button>
+              <button type="button" onClick={onConfirm} className="rounded-lg bg-rose-600 px-3.5 py-2 text-sm font-semibold text-white">{confirmLabel || 'Delete'}</button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    function SubjectCard({ subject, onEdit, onDelete, onAdjust }) {
+      const pct = getPct(subject.attended, subject.total);
+      const status = getStatus(subject.attended, subject.total, subject.min, subject.target);
+      const s = STATUS_STYLES[status];
+
+      return (
+        <div className={`rounded-2xl border border-slate-200 bg-white p-4 shadow-sm ring-1 ${s.ring}`}>
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <h3 className="truncate font-display text-base font-semibold text-slate-800">{subject.name}</h3>
+              <div className="mt-1"><StatusChip status={status} /></div>
+            </div>
+            <div className="flex shrink-0 items-center gap-1">
+              <button type="button" onClick={() => onEdit(subject)} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-slate-50 hover:text-slate-700"><Pencil size={15} /></button>
+              <button type="button" onClick={() => onDelete(subject)} className="flex h-8 w-8 items-center justify-center rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 size={15} /></button>
+            </div>
+          </div>
+          <div className="mt-3 flex items-baseline gap-1.5">
+            <span className="font-data text-3xl font-semibold tabular-nums" style={{ color: s.hex }}>
+              {subject.total > 0 ? pct.toFixed(1) : '—'}
+            </span>
+            {subject.total > 0 && <span className="font-data text-sm font-medium text-slate-400">%</span>}
+          </div>
+          <ProgressLedgerBar pct={pct} min={subject.min} target={subject.target} status={status} />
+          <div className="mt-3 space-y-2 rounded-xl bg-slate-50 p-3">
+            <CounterRow label="Attended" value={subject.attended} onDec={() => onAdjust(subject.id, 'attended', -1)} onInc={() => onAdjust(subject.id, 'attended', 1)} disabledDec={subject.attended <= 0} />
+            <CounterRow label="Held" value={subject.total} onDec={() => onAdjust(subject.id, 'total', -1)} onInc={() => onAdjust(subject.id, 'total', 1)} disabledDec={subject.total <= 0} />
+          </div>
+        </div>
+      );
+    }
+
+    function SubjectModal({ initial, onSave, onClose }) {
+      const [name, setName] = useState(initial ? initial.name : '');
+      const [min, setMin] = useState(initial ? String(initial.min) : '75');
+      const [target, setTarget] = useState(initial ? String(initial.target) : '85');
+      const [attended, setAttended] = useState(initial ? String(initial.attended) : '0');
+      const [total, setTotal] = useState(initial ? String(initial.total) : '0');
+      const [error, setError] = useState('');
+
+      function handleSubmit(e) {
+        e.preventDefault();
+        const trimmed = name.trim();
+        const minN = Number(min), targetN = Number(target), attN = Number(attended), totN = Number(total);
+        if (!trimmed) return setError('Give the subject a name.');
+        if (attN > totN) return setError('Classes attended cannot exceed classes held.');
+        setError('');
+        onSave({ name: trimmed, min: minN, target: targetN, attended: attN, total: totN });
+      }
+
+      return (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
+          <form onSubmit={handleSubmit} onClick={(e) => e.stopPropagation()} className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="font-display text-lg font-semibold text-slate-800">{initial ? 'Edit Subject' : 'Add Subject'}</h3>
+              <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Subject Name</label>
+                <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Pharmacology" className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800 outline-none focus:border-indigo-400" />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Minimum %</label>
+                  <input type="number" value={min} onChange={(e) => setMin(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Target %</label>
+                  <input type="number" value={target} onChange={(e) => setTarget(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Attended</label>
+                  <input type="number" value={attended} onChange={(e) => setAttended(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-400">Held</label>
+                  <input type="number" value={total} onChange={(e) => setTotal(e.target.value)} className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-800" />
+                </div>
+              </div>
+              {error && <p className="text-xs text-rose-600">{error}</p>}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button type="button" onClick={onClose} className="rounded-lg border border-slate-200 px-3.5 py-2 text-sm font-medium">Cancel</button>
+              <button type="submit" className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white">Save</button>
+            </div>
+          </form>
+        </div>
+      );
+    }
+
+    function App() {
+      const [subjects, setSubjects] = useState([]);
+      const [loaded, setLoaded] = useState(false);
+      const [subjectModal, setSubjectModal] = useState(null);
+      const [deleteTarget, setDeleteTarget] = useState(null);
+
+      useEffect(() => {
+        loadKey('subjects', []).then((s) => {
+          setSubjects(Array.isArray(s) ? s : []);
+          setLoaded(true);
+        });
+      }, []);
+
+      useEffect(() => {
+        if (loaded) saveKey('subjects', subjects);
+      }, [subjects, loaded]);
+
+      const addSubject = (data) => setSubjects((prev) => [...prev, { id: uid(), ...data }]);
+      const updateSubject = (id, data) => setSubjects((prev) => prev.map((s) => s.id === id ? { ...s, ...data } : s));
+      const deleteSubject = (id) => setSubjects((prev) => prev.filter((s) => s.id !== id));
+      
+      const adjustSubject = (id, field, delta) => {
+        setSubjects((prev) => prev.map((s) => {
+          if (s.id !== id) return s;
+          let { attended, total } = s;
+          if (field === 'attended') {
+            attended = delta > 0 ? attended + 1 : Math.max(0, attended - 1);
+            if (attended > total) total = attended;
+          } else {
+            total = delta > 0 ? total + 1 : Math.max(0, total - 1);
+            if (attended > total) attended = total;
+          }
+          return { ...s, attended, total };
+        }));
+      };
+
+      if (!loaded) return <div className="flex h-screen items-center justify-center"><Loader2 className="animate-spin" /></div>;
+
+      return (
+        <div className="min-h-screen pb-16">
+          <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/90 backdrop-blur">
+            <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
+              <div className="flex items-center gap-2">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-indigo-600 text-white"><GraduationCap size={19} /></div>
+                <span className="font-display text-lg font-semibold text-slate-800">Attendance Tracker</span>
+              </div>
+              <button type="button" onClick={() => setSubjectModal('new')} className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-sm font-semibold text-white shadow-sm">
+                <Plus size={16} /> Add Subject
+              </button>
+            </div>
+          </header>
+
+          <main className="mx-auto max-w-5xl px-4 py-6">
+            {subjects.length === 0 ? (
+              <EmptyState icon={BookOpen} title="No subjects yet" message="Add your first subject to start tracking your attendance." actionLabel="Add Subject" onAction={() => setSubjectModal('new')} />
+            ) : (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                {subjects.map((s) => (
+                  <SubjectCard key={s.id} subject={s} onEdit={(subj) => setSubjectModal(subj)} onDelete={(subj) => setDeleteTarget(subj)} onAdjust={adjustSubject} />
+                ))}
+              </div>
+            )}
+          </main>
+
+          {subjectModal && (
+            <SubjectModal initial={subjectModal === 'new' ? null : subjectModal} onClose={() => setSubjectModal(null)} onSave={(data) => {
+              if (subjectModal === 'new') addSubject(data);
+              else updateSubject(subjectModal.id, data);
+              setSubjectModal(null);
+            }} />
+          )}
+
+          {deleteTarget && (
+            <ConfirmDialog title={`Delete ${deleteTarget.name}?`} message="This cannot be undone." onCancel={() => setDeleteTarget(null)} onConfirm={() => {
+              deleteSubject(deleteTarget.id);
+              setDeleteTarget(null);
+            }} />
+          )}
+        </div>
+      );
+    }
+
+    ReactDOM.render(<App />, document.getElementById('root'));
+  </script>
+</body>
+</html>
