@@ -179,11 +179,11 @@
       const [subjects, setSubjects] = useState([]);
       const [timetable, setTimetable] = useState([]);
       const [historyLogs, setHistoryLogs] = useState({});
-      const [holidays, setHolidays] = useState([]); // List of { id, name, startDate, endDate }
-      const [cancelledSingleSlots, setCancelledSingleSlots] = useState({}); // { 'YYYY-MM-DD': [slotId1, slotId2] }
+      const [holidays, setHolidays] = useState([]);
+      const [cancelledSingleSlots, setCancelledSingleSlots] = useState({});
       
       const [activeTab, setActiveTab] = useState('tracker');
-      const [calendarViewMode, setCalendarViewMode] = useState('monthly'); // 'monthly' or 'daily'
+      const [calendarViewMode, setCalendarViewMode] = useState('monthly');
       const [loaded, setLoaded] = useState(false);
       const [notifState, setNotifState] = useState('unknown');
 
@@ -192,6 +192,12 @@
       const [syncing, setSyncing] = useState(false);
       const [lastSynced, setLastSynced] = useState(null);
       const tokenClientRef = useRef(null);
+
+      // Gemini AI Integration States
+      const [geminiApiKey, setGeminiApiKey] = useState('');
+      const [aiQuery, setAiQuery] = useState('');
+      const [aiResponse, setAiResponse] = useState('');
+      const [isAiLoading, setIsAiLoading] = useState(false);
 
       // Calendar Navigation State
       const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -226,6 +232,7 @@
           const savedHolidays = localStorage.getItem('attendance_holidays_v15');
           const savedCancelledSlots = localStorage.getItem('attendance_cancelled_single_v15');
           const savedLeadTime = localStorage.getItem('attendance_alert_lead_time');
+          const savedApiKey = localStorage.getItem('gemini_api_key_v1');
           
           if (savedSubjects) setSubjects(JSON.parse(savedSubjects));
           if (savedTimetable) setTimetable(JSON.parse(savedTimetable));
@@ -233,6 +240,7 @@
           if (savedHolidays) setHolidays(JSON.parse(savedHolidays));
           if (savedCancelledSlots) setCancelledSingleSlots(JSON.parse(savedCancelledSlots));
           if (savedLeadTime) setAlertLeadTime(parseInt(savedLeadTime, 10));
+          if (savedApiKey) setGeminiApiKey(savedApiKey);
         } catch (e) {}
 
         if ('Notification' in window) {
@@ -269,12 +277,13 @@
           localStorage.setItem('attendance_holidays_v15', JSON.stringify(holidays));
           localStorage.setItem('attendance_cancelled_single_v15', JSON.stringify(cancelledSingleSlots));
           localStorage.setItem('attendance_alert_lead_time', alertLeadTime.toString());
+          localStorage.setItem('gemini_api_key_v1', geminiApiKey);
 
           if (accessToken) {
             saveToGoogleDrive(accessToken, subjects, timetable, historyLogs, holidays, cancelledSingleSlots);
           }
         }
-      }, [subjects, timetable, historyLogs, holidays, cancelledSingleSlots, alertLeadTime, loaded]);
+      }, [subjects, timetable, historyLogs, holidays, cancelledSingleSlots, alertLeadTime, geminiApiKey, loaded]);
 
       const handleGoogleLogin = () => {
         if (!tokenClientRef.current) {
@@ -360,7 +369,50 @@
         }
       };
 
-      // Check if a specific date string (YYYY-MM-DD) falls within any registered holiday range
+      // Client-side Direct REST Call to Gemini API
+      const handleAskGemini = async (e) => {
+        e.preventDefault();
+        if (!geminiApiKey.trim()) {
+          alert("Please enter a valid Gemini API Key first.");
+          return;
+        }
+
+        setIsAiLoading(true);
+        setAiResponse('');
+
+        const contextPrompt = `You are an AI academic attendance advisor. Below is the user's current course telemetry data:
+Subjects: ${JSON.stringify(subjects)}
+Timetable: ${JSON.stringify(timetable)}
+Holidays: ${JSON.stringify(holidays)}
+
+User Question: ${aiQuery || "Analyze my overall attendance health and provide tactical advice on which classes I can skip or must attend to reach my targets."}
+
+Provide a concise, direct, clear, and bulleted analysis.`;
+
+        try {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              contents: [{ parts: [{ text: contextPrompt }] }]
+            })
+          });
+
+          const data = await res.json();
+          if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+            setAiResponse(data.candidates[0].content.parts[0].text);
+          } else if (data.error) {
+            setAiResponse(`API Error: ${data.error.message || 'Failed to fetch response'}`);
+          } else {
+            setAiResponse('Unexpected response format received from Gemini API.');
+          }
+        } catch (err) {
+          setAiResponse(`Client Request Error: ${err.message}`);
+        } finally {
+          setIsAiLoading(false);
+        }
+      };
+
       const isDateHoliday = (dateStr) => {
         return holidays.find(h => dateStr >= h.startDate && dateStr <= h.endDate);
       };
@@ -586,7 +638,11 @@
                 React.createElement('button', {
                   onClick: () => setActiveTab('timetable'),
                   className: `px-4 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'timetable' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
-                }, 'Schedule')
+                }, 'Schedule'),
+                React.createElement('button', {
+                  onClick: () => setActiveTab('ai'),
+                  className: `px-4 py-1.5 rounded-xl text-xs font-semibold tracking-wide transition-all ${activeTab === 'ai' ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white shadow-lg shadow-indigo-500/25' : 'text-slate-400 hover:text-white'}`
+                }, 'AI Advisor')
               )
             )
           )
@@ -893,7 +949,6 @@
                         )
                       ),
                       
-                      // Google Calendar Style Event Chips
                       !holidayObj && React.createElement('div', { className: 'w-full space-y-1 mt-1 overflow-hidden' },
                         daySlots.slice(0, 3).map(slot => {
                           if (cancelledSlotsForDay.includes(slot.id)) return null;
@@ -1187,6 +1242,51 @@
                 type: 'submit',
                 className: 'glow-button w-full rounded-2xl py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-xl shadow-indigo-500/20'
               }, 'Add Class Schedule')
+            )
+          ),
+
+          // TAB 3: GEMINI AI ADVISOR (CLIENT-SIDE API KEY INTEGRATION)
+          activeTab === 'ai' && React.createElement('div', { className: 'space-y-6' },
+            React.createElement('div', { className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-5' },
+              React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
+                React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-indigo-400' }, 'Gemini API Configuration'),
+                React.createElement('span', { className: 'text-[10px] text-slate-500 uppercase tracking-widest' }, 'Client-side REST')
+              ),
+              React.createElement('div', { className: 'space-y-2' },
+                React.createElement('label', { className: 'block text-xs font-semibold text-slate-400' }, 'Gemini API Key'),
+                React.createElement('input', {
+                  type: 'password',
+                  placeholder: 'Paste your Gemini API Key here...',
+                  value: geminiApiKey,
+                  onChange: (e) => setGeminiApiKey(e.target.value),
+                  className: 'glass-input w-full rounded-2xl px-4 py-3 text-sm font-mono'
+                }),
+                React.createElement('p', { className: 'text-[11px] text-slate-500' }, 'Keys are stored locally in your browser and synced securely to your Google Drive AppData.')
+              )
+            ),
+
+            React.createElement('form', { onSubmit: handleAskGemini, className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-5' },
+              React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
+                React.createElement('h2', { className: 'text-xs font-bold uppercase tracking-widest text-purple-400' }, 'AI Attendance Advisor'),
+                React.createElement('span', { className: 'text-[10px] text-slate-500 uppercase tracking-widest' }, 'Context Aware')
+              ),
+              React.createElement('textarea', {
+                rows: 3,
+                placeholder: 'e.g. How many pharmacology lectures can I safely skip before falling below my target?',
+                value: aiQuery,
+                onChange: (e) => setAiQuery(e.target.value),
+                className: 'glass-input w-full rounded-2xl p-4 text-sm font-medium'
+              }),
+              React.createElement('button', {
+                type: 'submit',
+                disabled: isAiLoading,
+                className: 'glow-button w-full rounded-2xl py-3.5 text-xs font-bold uppercase tracking-wider text-white shadow-xl shadow-indigo-500/20 disabled:opacity-50'
+              }, isAiLoading ? 'Analyzing Telemetry...' : 'Ask Gemini Advisor')
+            ),
+
+            aiResponse && React.createElement('div', { className: 'glass-card rounded-3xl p-6 sm:p-8 space-y-3' },
+              React.createElement('h3', { className: 'text-xs font-bold uppercase tracking-wider text-emerald-400 border-b border-white/10 pb-2' }, 'Gemini Intelligence Advisory'),
+              React.createElement('div', { className: 'text-sm text-slate-200 leading-relaxed whitespace-pre-wrap font-sans' }, aiResponse)
             )
           )
         )
