@@ -175,6 +175,56 @@
     const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     const DEFAULT_COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#06b6d4', '#8b5cf6', '#f43f5e', '#14b8a6'];
 
+    // Tool declarations for Gemini Function Calling
+    const GEMINI_TOOLS = [{
+      functionDeclarations: [
+        {
+          name: "addSubject",
+          description: "Adds a new subject to the tracker.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              name: { type: "STRING", description: "Subject name (e.g. Pharmacology, Anatomy)" },
+              min: { type: "NUMBER", description: "Minimum required attendance percentage (0-100)" },
+              target: { type: "NUMBER", description: "Target attendance percentage (0-100)" },
+              attended: { type: "NUMBER", description: "Initial attended classes count" },
+              total: { type: "NUMBER", description: "Initial total classes count" }
+            },
+            required: ["name"]
+          }
+        },
+        {
+          name: "deleteSubject",
+          description: "Deletes a subject and its schedules by subject name or ID.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              subjectNameOrId: { type: "STRING", description: "Name or ID of the subject to delete" }
+            },
+            required: ["subjectNameOrId"]
+          }
+        },
+        {
+          name: "addSchedule",
+          description: "Adds a permanent or temporary lecture schedule slot for a subject.",
+          parameters: {
+            type: "OBJECT",
+            properties: {
+              subjectNameOrId: { type: "STRING", description: "Name or ID of the existing subject" },
+              day: { type: "STRING", description: "Day of the week (Monday, Tuesday, etc.)" },
+              type: { type: "STRING", description: "Class type: 'Lecture' or 'Practical'" },
+              startTime: { type: "STRING", description: "Start time in HH:MM (24-hour format, e.g. 09:00)" },
+              endTime: { type: "STRING", description: "End time in HH:MM (24-hour format, e.g. 10:00)" },
+              isTemporary: { type: "BOOLEAN", description: "Set to true for a temporary schedule, false for recurring permanent schedule" },
+              startDate: { type: "STRING", description: "Start date for temporary schedule (YYYY-MM-DD)" },
+              endDate: { type: "STRING", description: "End date for temporary schedule (YYYY-MM-DD)" }
+            },
+            required: ["subjectNameOrId", "day", "startTime", "endTime"]
+          }
+        }
+      ]
+    }];
+
     function App() {
       const [subjects, setSubjects] = useState([]);
       const [timetable, setTimetable] = useState([]);
@@ -193,12 +243,13 @@
       const [lastSynced, setLastSynced] = useState(null);
       const tokenClientRef = useRef(null);
 
-      // Gemini AI Integration States
+      // Gemini AI Integration States (Chat Box)
       const [geminiApiKey, setGeminiApiKey] = useState('');
-      const [aiQuery, setAiQuery] = useState('');
-      const [aiResponse, setAiResponse] = useState('');
+      const [aiInput, setAiInput] = useState('');
+      const [chatMessages, setChatMessages] = useState([]);
       const [isAiLoading, setIsAiLoading] = useState(false);
       const [showAiAdvisor, setShowAiAdvisor] = useState(false);
+      const chatEndRef = useRef(null);
 
       // Calendar Navigation State
       const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -301,6 +352,12 @@
         }
       }, [subjects, timetable, historyLogs, holidays, cancelledSingleSlots, alertLeadTime, geminiApiKey, loaded]);
 
+      useEffect(() => {
+        if (chatEndRef.current) {
+          chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, [chatMessages, isAiLoading]);
+
       const handleGoogleLogin = () => {
         if (!tokenClientRef.current) {
           alert("Google Sign-In service is initializing.");
@@ -385,42 +442,165 @@
         }
       };
 
+      // Direct Execution functions for Function Calling
+      const executeAddSubject = (args) => {
+        const subName = args.name ? args.name.trim() : '';
+        if (!subName) return "Failed: Subject name is required.";
+
+        const att = Math.max(0, parseInt(args.attended) || 0);
+        const tot = Math.max(0, parseInt(args.total) || 0);
+        const minPct = parseFloat(args.min) || 75;
+        const targetPct = parseFloat(args.target) || 85;
+
+        if (att > tot) return "Failed: Attended classes cannot exceed total classes.";
+        if (minPct > targetPct) return "Failed: Minimum % cannot be greater than target %.";
+
+        const creationDate = new Date().toISOString().split('T')[0];
+        const newSub = {
+          id: Date.now().toString(),
+          name: subName,
+          attended: att,
+          total: tot,
+          min: minPct,
+          target: targetPct,
+          color: DEFAULT_COLORS[subjects.length % DEFAULT_COLORS.length],
+          createdAt: creationDate
+        };
+
+        setSubjects(prev => [...prev, newSub]);
+        return `Successfully added subject '${subName}' (Min: ${minPct}%, Target: ${targetPct}%).`;
+      };
+
+      const executeDeleteSubject = (args) => {
+        const query = args.subjectNameOrId ? args.subjectNameOrId.trim().toLowerCase() : '';
+        if (!query) return "Failed: Subject identifier required.";
+
+        let targetSub = subjects.find(s => s.id === query || s.name.toLowerCase() === query);
+        if (!targetSub) return `Failed: Could not find subject '${args.subjectNameOrId}'.`;
+
+        setSubjects(prev => prev.filter(s => s.id !== targetSub.id));
+        setTimetable(prev => prev.filter(t => t.subjectId !== targetSub.id));
+        return `Successfully deleted subject '${targetSub.name}' and all associated schedules.`;
+      };
+
+      const executeAddSchedule = (args) => {
+        const subQuery = args.subjectNameOrId ? args.subjectNameOrId.trim().toLowerCase() : '';
+        const targetSub = subjects.find(s => s.id === subQuery || s.name.toLowerCase() === subQuery);
+
+        if (!targetSub) return `Failed: Subject '${args.subjectNameOrId}' does not exist. Please create the subject first.`;
+
+        const dayName = args.day ? args.day.charAt(0).toUpperCase() + args.day.slice(1).toLowerCase() : 'Monday';
+        if (!DAYS.includes(dayName)) return `Failed: Invalid day '${args.day}'. Must be one of ${DAYS.join(', ')}.`;
+
+        const startTime = args.startTime || '09:00';
+        const endTime = args.endTime || '10:00';
+        if (startTime >= endTime) return "Failed: End time must be after start time.";
+
+        const isTemp = !!args.isTemporary;
+        const startDate = args.startDate || new Date().toISOString().split('T')[0];
+        const endDate = args.endDate || startDate;
+
+        if (isTemp && endDate < startDate) return "Failed: Schedule end date cannot be before start date.";
+
+        const newSlot = {
+          id: Date.now().toString(),
+          day: dayName,
+          subjectId: targetSub.id,
+          type: args.type === 'Practical' ? 'Practical' : 'Lecture',
+          startTime: startTime,
+          endTime: endTime,
+          isTemporary: isTemp,
+          startDate: isTemp ? startDate : null,
+          endDate: isTemp ? endDate : null
+        };
+
+        setTimetable(prev => [...prev, newSlot]);
+        return `Successfully scheduled ${isTemp ? 'temporary' : 'permanent'} ${newSlot.type} for '${targetSub.name}' on ${dayName}s (${startTime}-${endTime})${isTemp ? ` from ${startDate} to ${endDate}` : ''}.`;
+      };
+
       const handleAskGemini = async (e) => {
         e.preventDefault();
+        const promptText = aiInput.trim();
+        if (!promptText) return;
         if (!geminiApiKey.trim()) {
           alert("Please enter a valid Gemini API Key first.");
           return;
         }
 
+        // Add user message to chat and CLEAR typing box immediately
+        const userMsg = { sender: 'user', text: promptText, timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
+        setChatMessages(prev => [...prev, userMsg]);
+        setAiInput('');
         setIsAiLoading(true);
-        setAiResponse('');
 
-        const contextPrompt = `You are an academic attendance advisor. Below is the student's telemetry data:
+        const contextPrompt = `You are an intelligent academic attendance assistant with tool execution capabilities.
+Below is the user's current data:
 Subjects: ${JSON.stringify(subjects)}
 Timetable: ${JSON.stringify(timetable)}
 Holidays: ${JSON.stringify(holidays)}
 
-Query: ${aiQuery || "Analyze my attendance status and tell me which classes I can skip or must attend."}`;
+User Request: "${promptText}"
+
+You can answer queries directly OR execute actions using tools:
+1. addSubject(name, min, target, attended, total)
+2. deleteSubject(subjectNameOrId)
+3. addSchedule(subjectNameOrId, day, type, startTime, endTime, isTemporary, startDate, endDate)`;
 
         try {
-          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey.trim()}`, {
+          const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiApiKey.trim()}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: contextPrompt }] }]
+              contents: [{ parts: [{ text: contextPrompt }] }],
+              tools: GEMINI_TOOLS
             })
           });
 
           const data = await res.json();
+          let botReply = '';
+
           if (data.candidates && data.candidates[0] && data.candidates[0].content) {
-            setAiResponse(data.candidates[0].content.parts[0].text);
+            const parts = data.candidates[0].content.parts;
+            let executionLogs = [];
+
+            for (const part of parts) {
+              if (part.text) {
+                botReply += part.text + ' ';
+              }
+              if (part.functionCall) {
+                const call = part.functionCall;
+                let result = '';
+                if (call.name === 'addSubject') {
+                  result = executeAddSubject(call.args);
+                } else if (call.name === 'deleteSubject') {
+                  result = executeDeleteSubject(call.args);
+                } else if (call.name === 'addSchedule') {
+                  result = executeAddSchedule(call.args);
+                }
+                executionLogs.push(`⚙️ Executed ${call.name}: ${result}`);
+              }
+            }
+
+            if (executionLogs.length > 0) {
+              botReply = `${executionLogs.join('\n')}\n\n${botReply}`.trim();
+            }
           } else if (data.error) {
-            setAiResponse(`API Error: ${data.error.message || 'Failed to fetch response'}`);
+            botReply = `API Error: ${data.error.message || 'Failed to fetch response'}`;
           } else {
-            setAiResponse('Unexpected response format received from Gemini API.');
+            botReply = 'Unexpected response format received from Gemini API.';
           }
+
+          setChatMessages(prev => [...prev, {
+            sender: 'ai',
+            text: botReply || 'Action executed successfully.',
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
         } catch (err) {
-          setAiResponse(`Client Request Error: ${err.message}`);
+          setChatMessages(prev => [...prev, {
+            sender: 'ai',
+            text: `Client Request Error: ${err.message}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          }]);
         } finally {
           setIsAiLoading(false);
         }
@@ -430,7 +610,6 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
         return holidays.find(h => dateStr >= h.startDate && dateStr <= h.endDate);
       };
 
-      // Helper to check if a slot is active for a given date string (handles temporary schedule bounds)
       const isSlotActiveOnDate = (slot, dateStr) => {
         if (slot.isTemporary) {
           if (slot.startDate && dateStr < slot.startDate) return false;
@@ -499,7 +678,6 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
         let minPct = parseFloat(min) || 75;
         let targetPct = parseFloat(target) || 85;
 
-        // Validation Rules
         if (att > tot) {
           alert("Invalid input: Attended classes cannot exceed total held classes.");
           return;
@@ -749,12 +927,12 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
             )
           ),
 
-          // TOGGLEABLE RELOCATED GEMINI AI ADVISOR TILE
+          // INTERACTIVE GEMINI CHAT BOT & ASSISTANT TILE
           React.createElement('div', { className: 'glass-card rounded-3xl p-4 sm:p-6 space-y-4' },
             React.createElement('div', { className: 'flex items-center justify-between border-b border-white/10 pb-3' },
               React.createElement('div', { className: 'flex items-center gap-2' },
                 React.createElement('span', { className: 'text-sm' }, '✨'),
-                React.createElement('h3', { className: 'text-xs font-bold uppercase tracking-wider text-purple-300' }, 'Gemini AI Advisor')
+                React.createElement('h3', { className: 'text-xs font-bold uppercase tracking-wider text-purple-300' }, 'Gemini AI Assistant & Actions')
               ),
               React.createElement('button', {
                 onClick: () => setShowAiAdvisor(!showAiAdvisor),
@@ -773,23 +951,44 @@ Query: ${aiQuery || "Analyze my attendance status and tell me which classes I ca
                   className: 'glass-input w-full rounded-2xl px-3.5 py-2 text-xs font-mono'
                 })
               ),
-              React.createElement('form', { onSubmit: handleAskGemini, className: 'space-y-3' },
-                React.createElement('textarea', {
-                  rows: 2,
-                  placeholder: 'Ask AI advisor (e.g. How many pharmacology lectures can I safely skip?)',
-                  value: aiQuery,
-                  onChange: (e) => setAiQuery(e.target.value),
-                  className: 'glass-input w-full rounded-2xl p-3 text-xs font-medium'
+
+              // Chat Box Display
+              React.createElement('div', { className: 'h-64 overflow-y-auto space-y-3 p-3.5 rounded-2xl bg-black/40 border border-white/10' },
+                chatMessages.length === 0 ? 
+                  React.createElement('div', { className: 'text-center py-10 text-slate-500 text-xs' }, 
+                    'Ask Gemini to analyze attendance, create or delete subjects, or add temporary/permanent schedules.'
+                  ) :
+                  chatMessages.map((msg, idx) => React.createElement('div', {
+                    key: idx,
+                    className: `flex flex-col ${msg.sender === 'user' ? 'items-end' : 'items-start'}`
+                  },
+                    React.createElement('div', {
+                      className: `max-w-[85%] rounded-2xl p-3 text-xs leading-relaxed whitespace-pre-wrap ${
+                        msg.sender === 'user' 
+                          ? 'bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-br-none shadow-md' 
+                          : 'bg-white/10 text-slate-200 border border-white/10 rounded-bl-none'
+                      }`
+                    }, msg.text),
+                    React.createElement('span', { className: 'text-[9px] text-slate-500 mt-1 px-1' }, msg.timestamp)
+                  )),
+                isAiLoading && React.createElement('div', { className: 'flex items-center gap-2 text-purple-400 text-xs p-2 font-medium animate-pulse' }, '✨ Gemini is working...'),
+                React.createElement('div', { ref: chatEndRef })
+              ),
+
+              // Input Chat Bar
+              React.createElement('form', { onSubmit: handleAskGemini, className: 'flex items-center gap-2' },
+                React.createElement('input', {
+                  type: 'text',
+                  placeholder: 'Type message or command (e.g., "Add temporary lecture for Pathology on Monday 10:00-11:00 from 2026-08-01 to 2026-08-31")...',
+                  value: aiInput,
+                  onChange: (e) => setAiInput(e.target.value),
+                  className: 'glass-input flex-1 rounded-2xl px-4 py-2.5 text-xs font-medium'
                 }),
                 React.createElement('button', {
                   type: 'submit',
-                  disabled: isAiLoading,
-                  className: 'glow-button w-full rounded-2xl py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg shadow-purple-500/20 disabled:opacity-50'
-                }, isAiLoading ? 'Analyzing...' : 'Ask Gemini Assistant')
-              ),
-              aiResponse && React.createElement('div', { className: 'p-3.5 rounded-2xl bg-white/[0.03] border border-white/10 space-y-1' },
-                React.createElement('p', { className: 'text-[11px] font-bold text-emerald-400 uppercase tracking-wider' }, 'Advisory Output'),
-                React.createElement('div', { className: 'text-xs text-slate-200 leading-relaxed whitespace-pre-wrap' }, aiResponse)
+                  disabled: isAiLoading || !aiInput.trim(),
+                  className: 'glow-button px-4 py-2.5 rounded-2xl text-xs font-bold uppercase tracking-wider text-white disabled:opacity-50'
+                }, 'Send')
               )
             )
           ),
